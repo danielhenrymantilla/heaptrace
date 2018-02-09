@@ -97,7 +97,6 @@ static int handle_traps (struct trap_context * ctxt,
       fprintf(STREAM, BANNER "Entering function: %s(", ctxt->name);
       if (ctxt->function_arity) {
         size_t args_number = ctxt->function_arity->args_number;
-        printd_var(args_number);
         if (args_number) {
           long * arg_addr = get_sp(tracee);
           for(size_t i = 0; i < args_number - 1; ++i) {

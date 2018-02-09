@@ -184,7 +184,7 @@ void * mainarena_of_pid (pid_t pid)
 
 void fprint_mem_chunk (FILE * stream,
                        void * mem,
-                       struct malloc_state * arena)
+                       struct malloc_state * main_arena)
 {
   mchunkptr chunk = (mchunkptr) (mem - offsetof(struct malloc_chunk, fd));
   print("Got chunk at " XT " (from mem = " XT "):\n", (void *) chunk, mem);
@@ -196,4 +196,41 @@ void fprint_mem_chunk (FILE * stream,
         DR(&chunk->mchunk_size),
         DR(&chunk->fd),
         DR(&chunk->bk));
+  // arena_for_mem(mem, main_arena);
+}
+
+typedef struct _heap_info
+{
+  struct malloc_state * ar_ptr; /* Arena for this heap. */
+  struct _heap_info * prev; /* Previous heap. */
+  size_t size;   /* Current size in bytes. */
+  size_t mprotect_size; /* Size in bytes that has been mprotected
+                           PROT_READ|PROT_WRITE.  */
+  /* Make sure the following data is properly aligned, particularly
+     that sizeof (heap_info) + 2 * SIZE_SZ is a multiple of
+     MALLOC_ALIGNMENT. */
+  char pad[-6 * SIZE_SZ & MALLOC_ALIGN_MASK];
+} heap_info;
+
+#define HEAP_MAX_SIZE (1024 * 1024) /* must be a power of two */
+#define heap_for_ptr(ptr) \
+  ((heap_info *) ((unsigned long) (ptr) & ~(HEAP_MAX_SIZE - 1)))
+
+struct malloc_state *
+  arena_for_mem (void * mem, struct malloc_state * main_arena)
+{
+  mchunkptr chunk = mem2chunk(mem);
+  if (!chunk_main_arena(chunk)) {
+    heap_info * heap = heap_for_ptr(chunk);
+    printd_var(heap);
+    struct malloc_state * arena = (struct malloc_state *) DR(&heap->ar_ptr);
+    printd("Chunk at " XT " does not use main_arena (at " XT ") but uses:\n"
+           "-> its own heap at " XT "\n"
+           "-> its own arena at " XT " (read at " XT ")\n",
+           (uintptr_t) chunk, (uintptr_t) main_arena,
+           (uintptr_t) heap,
+           (uintptr_t) arena, (uintptr_t) heap + offsetof(heap_info, ar_ptr));
+    return arena;
+  }
+  return main_arena;
 }

@@ -71,4 +71,19 @@ struct malloc_state
   INTERNAL_SIZE_T max_system_mem;
 };
 
+
+/* size field is or'ed with PREV_INUSE when previous adjacent chunk in use */
+#define PREV_INUSE 0x1
+#define prev_inuse(p)       ((p)->mchunk_size & PREV_INUSE)
+
+
+/* size field is or'ed with IS_MMAPPED if the chunk was obtained with mmap() */
+#define IS_MMAPPED 0x2
+#define chunk_is_mmapped(p) ((p)->mchunk_size & IS_MMAPPED)
+
+/* size field is or'ed with NON_MAIN_ARENA if the chunk was obtained
+ * from a non-main arena. */
+#define NON_MAIN_ARENA 0x4
+#define chunk_main_arena(p) (!((p)->mchunk_size & NON_MAIN_ARENA))
+
 #endif /* __MALLOC_H__ */

@@ -19,7 +19,10 @@ void * myarena_dereference;
 
 void fprint_arena (FILE * stream, struct malloc_state * arena);
 
-void fprint_mem_chunk (FILE *, void * mem, struct malloc_state *);
+struct malloc_state *
+  arena_for_mem (void * mem, struct malloc_state * main_arena);
+
+void fprint_mem (FILE *, void * mem, struct malloc_state * main_arena);
 
 #ifndef DR
  #define DR(x) (((uintptr_t (*) (void *)) myarena_dereference)(x))
