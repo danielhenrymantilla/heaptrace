@@ -2,6 +2,8 @@
 #define __HELPERS_H__
 
 #define _GNU_SOURCE
+#define DISABLE_MYPRINTER
+
 #include <sys/ptrace.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -24,13 +26,13 @@
 
 /* Use make D=DEBUG when compiling to enable debug printing */
 #ifdef DEBUG
- #define printd(format, ...) \
+# define printd(format, ...) \
   fprintf(stderr, "\e[33m" format "\e[m", ##__VA_ARGS__)
- #define printd_low(format, ...) \
+# define printd_low(format, ...) \
   fprintf(stderr, "\e[1;30m" format "\e[m", ##__VA_ARGS__)
 #else
- #define printd(...) ((void) 0)
- #define printd_low(...) ((void) 0)
+# define printd(...) ((void) 0)
+# define printd_low(...) ((void) 0)
 #endif
 
 #define xstr(x) #x
@@ -43,5 +45,14 @@
   free(buf); \
   exit(EXIT_FAILURE); \
 } while (0)
+
+#ifndef print_fail
+# define print_fail(fmt, ...) do {                              \
+   fprintf(stderr, "Fatal error: " fmt ".\n", ##__VA_ARGS__);   \
+   exit(-1);                                                    \
+ } while (0)
+#endif
+
+#define streq(s1, s2) (!strcmp(s1, s2))
 
 #endif /* __HELPERS_H__ */

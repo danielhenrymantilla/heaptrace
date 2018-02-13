@@ -169,12 +169,12 @@ void lookup_symbols (uintptr_t * addresses,
             char next_char = symname[lens[k]];
             if (next_char == '\0') {		/* exact match */
               addresses[k] = (uintptr_t) symtab->st_value;
-              printd("addresses[%d] = %p\n", k, (void *) addresses[k]);
+              printd("%s at %p\n", symbols[k], (void *) addresses[k]);
             } else if (next_char == '@') {	/* partial match, dynsym ? */
               printd("'%s' seems to be a dynamically linked symbol\n",
                 symname);
               addresses[k] = lookup_dynamic_symbol(raw_binary, symbols[k]);
-              printd("addresses[%d] = %p\n", k, (void *) addresses[k]);
+              printd("%s at %p\n", symbols[k], (void *) addresses[k]);
             }
           }
         }

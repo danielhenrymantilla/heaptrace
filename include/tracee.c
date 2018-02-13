@@ -259,11 +259,11 @@ int tracee_main_loop (tracee_t * tracee,
         void * ip = get_and_shift_ip(tracee, -TRAP_SZ);
         printd("Got SIGTRAP at %p\n", ip);
         /* Identify SIGTRAP */
-        int unknown_sigtrap = 1;
         for (bp_list bp = tracee->bps; bp != NULL; bp = bp->next) {
           if (bp->addr == ip) {
-            printd_low("Saved instruction byte: 0x%hhx\n", bp->instr_bckup);
-            unknown_sigtrap = 0;
+            printd_low("Saved instruction byte: 0x%hhx\n",
+              (int) bp->instr_bckup);
+            signal = 0;
             struct trap_context trap_ctxt;
             trap_ctxt.name = (const char *) bp->name;
             trap_ctxt.function_arity = bp->function_arity;
@@ -291,12 +291,11 @@ int tracee_main_loop (tracee_t * tracee,
             break;
           }
         }
-        if (unknown_sigtrap) {
+        if (signal == SIGTRAP) {
           printd("Couldn't identify SIGTRAP\n");
           get_and_shift_ip(tracee, +TRAP_SZ);
           ret = handle_traps(NULL, &keep_looping, extra);
         }
-        signal = 0;
       }
     }
   }
@@ -331,4 +330,23 @@ void tracee_follow_function (tracee_t * tracee,
 void tracee_unfollow_function (tracee_t * tracee, void * target_addr)
 {
   tracee_remove_breakpoint(tracee, target_addr);
+}
+
+void tracee_fprint_function (tracee_t * tracee,
+                             struct trap_context ctxt,
+                             FILE * stream)
+{
+  fprintf(stream, "%s(", ctxt.name);
+  if (ctxt.function_arity) {
+    size_t args_number = ctxt.function_arity->args_number;
+    if (args_number) {
+      long * arg_addr = (long *) ctxt.regs.REG_SP;
+      if (ctxt.is_wp) ++arg_addr;
+      for(size_t i = 1; i <= args_number; ++i) {
+        fprintf(stream, i != args_number ? "%p, " : "%p",
+          (void *) ptrace(PTRACE_PEEKDATA, tracee->pid, arg_addr++, NULL));
+      }
+    }
+  }
+  fprintf(stream, ")");
 }

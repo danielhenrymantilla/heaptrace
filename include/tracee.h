@@ -53,4 +53,8 @@ void tracee_free (tracee_t *);
 void * get_ip(tracee_t *);
 void * get_sp(tracee_t *);
 
+void tracee_fprint_function (tracee_t * tracee,
+                             struct trap_context ctxt,
+                             FILE * stream);
+
 #endif /* __TRACEE_H__ */

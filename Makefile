@@ -41,6 +41,6 @@ set: include/myarena.c $(EXE).c
 	@nano $^
 
 clean:
-	@rm -f $(EXE) *.o *~
+	@rm -f $(EXE) *.o *~ core
 	@ls
-	@rm -f example/foo
+	@rm -f example/foo example/core

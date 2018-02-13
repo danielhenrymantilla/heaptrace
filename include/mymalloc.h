@@ -26,9 +26,9 @@
    ((req) + SIZE_SZ + MALLOC_ALIGN_MASK) & ~MALLOC_ALIGN_MASK)
 
 struct malloc_chunk {
-  INTERNAL_SIZE_T      mchunk_prev_size;  /* Size of previous chunk (if free).  */
-  INTERNAL_SIZE_T      mchunk_size;       /* Size in bytes, including overhead. */
-  struct malloc_chunk * fd;         /* double links -- used only if free. */
+  INTERNAL_SIZE_T   mchunk_prev_size;  /* Size of previous chunk (if free).  */
+  INTERNAL_SIZE_T   mchunk_size;       /* Size in bytes, including overhead. */
+  struct malloc_chunk * fd;            /* double links -- used only if free. */
   struct malloc_chunk * bk;
 
   /* Only used for large blocks: pointer to next larger size.  */
@@ -76,7 +76,6 @@ struct malloc_state
 #define PREV_INUSE 0x1
 #define prev_inuse(p)       ((p)->mchunk_size & PREV_INUSE)
 
-
 /* size field is or'ed with IS_MMAPPED if the chunk was obtained with mmap() */
 #define IS_MMAPPED 0x2
 #define chunk_is_mmapped(p) ((p)->mchunk_size & IS_MMAPPED)
@@ -84,6 +83,6 @@ struct malloc_state
 /* size field is or'ed with NON_MAIN_ARENA if the chunk was obtained
  * from a non-main arena. */
 #define NON_MAIN_ARENA 0x4
-#define chunk_main_arena(p) (!((p)->mchunk_size & NON_MAIN_ARENA))
+#define chunk_main_arena(p) (!chunk_non_main_arena(p))
 
 #endif /* __MALLOC_H__ */

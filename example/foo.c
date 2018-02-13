@@ -20,6 +20,7 @@ int main (int argc, char * argv[])
   free(ptr);
   print("Foo!\n");
   ptr = calloc(10, 10);
+  print(ptr);
   free(ptr);
   free(ptr3);
 /*  SIGTRAP
