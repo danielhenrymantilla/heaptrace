@@ -23,6 +23,8 @@
  } while (0)
 #endif
 
+#define streq(s1, s2) (!strcmp(s1, s2))
+
 int open_raw_binary (const char * binaryname, const char ** raw_binary_addr)
 {
   if (!raw_binary_addr)
@@ -49,7 +51,6 @@ int close_raw_binary (int fd, const char * raw_binary)
 uintptr_t lookup_symbol (const char * raw_binary, const char * symbol) {
   uintptr_t ret;
   lookup_symbols(&ret, raw_binary, &symbol, 1);
-  // printd_var(ret);
   return ret;
 }
 
@@ -65,7 +66,8 @@ static ELF_EHDR get_headers(const ELF_PHDR ** phdr,
     print_fail("Not an ELF file (Magic failed, got 0x%08x)",
       *(uint32_t *) raw_binary);
   if (ehdr.e_type != ET_EXEC)
-    print_fail("Not an executable");
+    print_fail("Not an executable (got %#hx instead of ET_EXEC = %#hx)",
+      ehdr.e_type, ET_EXEC);
   if (ehdr.e_shstrndx == 0 || ehdr.e_shoff == 0 || ehdr.e_shnum == 0)
     print_fail("missing section header table");
   return ehdr;
@@ -95,18 +97,18 @@ static uintptr_t lookup_dynamic_symbol (const char * raw_binary,
       &raw_binary[shdr[ehdr.e_shstrndx].sh_offset];
     for (size_t i = 0; i < ehdr.e_shnum; ++i) {
       if (shdr[i].sh_type == SHT_STRTAB
-        && !strcmp(".dynstr", &section_names_table[shdr[i].sh_name]))
+        && streq(".dynstr", &section_names_table[shdr[i].sh_name]))
       {
         printd("Found .dynstr at offset %p\n", (void *) shdr[i].sh_offset);
         dynstr_section_addr = &raw_binary[shdr[i].sh_offset];
       } else if (shdr[i].sh_type == SHT_PROGBITS
-        && !strcmp(".plt", &section_names_table[shdr[i].sh_name]))
+        && streq(".plt", &section_names_table[shdr[i].sh_name]))
       {
         printd("Found .plt at offset %p and address %p\n",
           (void *) shdr[i].sh_offset, (void *) shdr[i].sh_addr);
         plt_section_addr = (uintptr_t) shdr[i].sh_addr;
       } else if (shdr[i].sh_type == SHT_DYNSYM
-        && !strcmp(".dynsym", &section_names_table[shdr[i].sh_name]))
+        && streq(".dynsym", &section_names_table[shdr[i].sh_name]))
       {
         printd("Found .dynsym at offset %p\n", (void *) shdr[i].sh_offset);
         dynsym_section_addr = (ELF_SYM *) &raw_binary[shdr[i].sh_offset];
@@ -128,13 +130,16 @@ static uintptr_t lookup_dynamic_symbol (const char * raw_binary,
     printd_low("dynsym entry number %p : '%s'\n",
       (void *) ((ret - plt_section_addr) / PLT_ENTRY_SZ),
       dynstr_section_addr + cur_dynsym->st_name);
-    if (!strcmp(symbol_name, dynstr_section_addr + cur_dynsym->st_name))
+    if ((cur_dynsym->st_info & 0xf) == STT_FUNC)
+      ret += PLT_ENTRY_SZ;
+    if (streq(symbol_name, dynstr_section_addr + cur_dynsym->st_name))
       return ret;
-    ret += PLT_ENTRY_SZ;
     ++cur_dynsym;
   }
 
-  print_fail("Couldn't locate dynamic symbol '%s'", symbol_name);
+  //print_fail("Couldn't locate dynamic symbol '%s'", symbol_name);
+  fprintf(stderr, "Couldn't locate dynamic symbol '%s'.\n", symbol_name);
+  return NULL;
 }
 
 void lookup_symbols (uintptr_t * addresses,

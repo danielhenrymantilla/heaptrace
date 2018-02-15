@@ -5,50 +5,27 @@
 #include <unistd.h>
 #define print(s) write(1, s, sizeof(s) - 1)
 
-#define SIGTRAP //__asm__("int $0x3");
+#define SIZE 0x18000
 
 int main (int argc, char * argv[])
 {
-  char * ptr = malloc(500);
-  char * ptr3;
-  {
-    char * ptr2 = malloc(200);
-    ptr3 = malloc(300);
-    free (ptr2);
+  int n = 0;
+  char * msg = "AAAA";
+  if (argc >= 2) n = atoi(argv[1]);
+  if (argc >= 3) msg = argv[2];
+  for (size_t i = 0; i < n; ++i) {
+    long * ptr = malloc(SIZE);
+    for (size_t j = SIZE / sizeof(long); j; --j)
+      ptr[j] = 0xf7f9f780L;
   }
-  ptr = realloc(ptr, 50);
-  free(ptr);
-  print("Foo!\n");
-  ptr = calloc(10, 10);
-  print(ptr);
-  free(ptr);
-  free(ptr3);
-/*  SIGTRAP
-  char * ptr1, * ptr2, * ptr3, * ptr4, * ptr5;
-  ptr1 = malloc(520);
-  SIGTRAP
-  ptr2 = malloc(520);
-  SIGTRAP
-  ptr3 = malloc(15);
-  SIGTRAP
-  ptr2 = realloc(ptr2, 800);
-  SIGTRAP
-  ptr4 = malloc(520);
-  SIGTRAP
-  ptr5 = malloc(200);
-  SIGTRAP
-  free(ptr1);
-  SIGTRAP
+  char * ptr1, * ptr2, * ptr3, * ptr4;
+  ptr1 = malloc(0xb);
+  ptr2 = malloc(0xb);
+  ptr3 = malloc(0xb);
+  ptr4 = malloc(0xb);
+  strcpy(ptr1, msg);
   free(ptr2);
-  SIGTRAP
-  free(ptr3);
-  SIGTRAP
-  ptr3 = malloc(5000);
-  SIGTRAP
-  free(ptr3); ptr3 = malloc(150); ptr3 = malloc(3000);
-  SIGTRAP*/
-  //getchar();
+  // malloc(0x80);
   print("Hello world!\n");
-  //__asm__("int $0x3");
   return 0;
 }

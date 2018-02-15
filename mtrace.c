@@ -27,7 +27,7 @@ static int handle_traps (struct trap_context * ctxt,
                          int * tracee_keep_looking,
                          void * extra);
 
-static void * arena;
+static void * main_arena;
 #define STREAM stderr
 
 int main (int argc, char * argv[])
@@ -38,10 +38,10 @@ int main (int argc, char * argv[])
   myarena_dereference = (void *) tracee_deref;
   const char * raw_binary;
   int fd = open_raw_binary(argv[1], &raw_binary);
-  arena = (void *) lookup_symbol(raw_binary, "main_arena");
-  if (!arena)
-    arena = mainarena_of_pid(tracee->pid);
-  if (!arena)
+  main_arena = (void *) lookup_symbol(raw_binary, "main_arena");
+  if (!main_arena)
+    main_arena = mainarena_of_pid(tracee->pid);
+  if (!main_arena)
     print_fail("Couldn't locate main_arena");
   const char * symbols[] = {
     "malloc", "realloc", "calloc", "free"
@@ -118,19 +118,26 @@ static int handle_traps (struct trap_context * ctxt,
     if (ctxt->is_wp) {	/* Watchpoint => Entry of function */
       fprintf(STREAM, "\n\n");
       fprintf(STREAM, BANNER "Entering function: ");
-      tracee_fprint_function(tracee, *ctxt, STREAM);
+      trap_fprint_function(*ctxt, STREAM);
       fprintf(STREAM, "\n");
+      fprint_arena_whole_mem(STREAM, main_arena, *at_mhandles);
+      if (streq("free", ctxt->name) || streq("realloc", ctxt->name)) {
+        void * mem = (void *) ctxt->stack[1];
+        printd_var(mem);
+        fprint_arena(STREAM, arena_for_mem(mem, main_arena, STREAM));
+      } else
+        fprint_arena(STREAM, main_arena);
     } else {	/* Function return */
       fprintf(STREAM, BANNER "Returning from function: ");
-      tracee_fprint_function(tracee, *ctxt, STREAM);
+      trap_fprint_function(*ctxt, STREAM);
       if (ctxt->function_arity && !ctxt->function_arity->returns_void) {
         fprintf(STREAM, " = %p", (void *) ctxt->regs.RET);
       }
       fprintf(STREAM, "\n");
       long * arg_addr = (long *) ctxt->regs.SP;
       long ret   = ctxt->regs.RET;
-      long arg_1 = ptrace(PTRACE_PEEKDATA, tracee->pid, arg_addr++, NULL);
-      long arg_2 = ptrace(PTRACE_PEEKDATA, tracee->pid, arg_addr++, NULL);
+      long arg_1 = ctxt->stack[0];
+      long arg_2 = ctxt->stack[1];
       switch (as_enum(ctxt->name)) {
       case MALLOC:
         mhandles_add(at_mhandles, (void *) ret, (size_t) arg_1);
@@ -148,8 +155,6 @@ static int handle_traps (struct trap_context * ctxt,
         break;
       default: break;
       }
-      fprint_arena_whole_mem(STREAM, arena, *at_mhandles);
-      fprint_arena(STREAM, arena);
     }
     return 0;
   } else {

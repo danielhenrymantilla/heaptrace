@@ -226,6 +226,10 @@ void * get_ret (tracee_t * tracee)
   return (void *) regs.REG_RET;
 }
 
+static const size_t trap_context_stack_count =
+  sizeof(((struct trap_context *)NULL)->stack) /
+    sizeof(((struct trap_context *)NULL)->stack[0]);
+
 int tracee_main_loop (tracee_t * tracee,
                       int (*handle_traps) (struct trap_context * ctxt,
                                            int * tracee_keep_looping,
@@ -270,6 +274,13 @@ int tracee_main_loop (tracee_t * tracee,
             trap_ctxt.is_wp = 0;
             if (ptrace(PTRACE_GETREGS, tracee->pid, NULL, &trap_ctxt.regs) < 0)
               failwith("PTRACE_GETREGS (in bp_list loop)");
+            long * stack_ptr = (long *) trap_ctxt.regs.REG_SP;
+            for (size_t i = 0; i < trap_context_stack_count; ++i) {
+              trap_ctxt.stack[i] =
+                ptrace(PTRACE_PEEKDATA, tracee->pid, stack_ptr++, NULL);
+              printd_low("trap_ctxt.stack[%zu] = %#lx\n",
+                i, trap_ctxt.stack[i]);
+            }
             if (bp->wp) { /* Is it a watched function? */
               trap_ctxt.is_wp = 1;
               void * sp = get_sp(tracee);
@@ -332,19 +343,16 @@ void tracee_unfollow_function (tracee_t * tracee, void * target_addr)
   tracee_remove_breakpoint(tracee, target_addr);
 }
 
-void tracee_fprint_function (tracee_t * tracee,
-                             struct trap_context ctxt,
-                             FILE * stream)
+void trap_fprint_function (struct trap_context ctxt,
+                           FILE * stream)
 {
   fprintf(stream, "%s(", ctxt.name);
   if (ctxt.function_arity) {
     size_t args_number = ctxt.function_arity->args_number;
     if (args_number) {
-      long * arg_addr = (long *) ctxt.regs.REG_SP;
-      if (ctxt.is_wp) ++arg_addr;
       for(size_t i = 1; i <= args_number; ++i) {
-        fprintf(stream, i != args_number ? "%p, " : "%p",
-          (void *) ptrace(PTRACE_PEEKDATA, tracee->pid, arg_addr++, NULL));
+        fprintf(stream, i != args_number ? "%#lx, " : "%#lx",
+          ctxt.stack[i - 1 + ctxt.is_wp]);
       }
     }
   }

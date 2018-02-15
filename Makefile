@@ -16,16 +16,18 @@ endif
 
 CFLAGS=-Wall -Wextra -m$(ARCH) -D __ARCH__=$(ARCH) $(CUSTOMDEFINE)
 
-LDFLAGS=-Iinclude
+LDFLAGS=#-Iinclude
 
-.PHONY: all set clean run $(ARGS)
+.PHONY: default all set clean run no_obj
+
+default: $(EXE) no_obj
 
 all: set clean run
 
-run: $(EXE) $(ARGS)
+run: $(EXE) example/foo
 	 ./$< $(ARGS)
 
-$(ARGS): $(ARGS).c
+example/foo: example/foo.c
 	@make -C example foo ARCH=$(ARCH)
 
 $(EXE): $(EXE).o elfutils.o myarena.o tracee.o myprinter.o
@@ -40,7 +42,10 @@ $(EXE).o: $(EXE).c
 set: include/myarena.c $(EXE).c
 	@nano $^
 
-clean:
-	@rm -f $(EXE) *.o *~ core
+no_obj:
+	@rm -f *.o
+
+clean: no_obj
+	@rm -f $(EXE) *~ core .gdb_history
 	@ls
 	@rm -f example/foo example/core

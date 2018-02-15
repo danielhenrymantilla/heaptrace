@@ -30,11 +30,10 @@ void * myarena_dereference = classic_dereference;
 
 #define print(format, ...) \
   myfprintf(stream, format, ##__VA_ARGS__)
-//  myfprintf(stream, "\e[33m" format "\e[m", ##__VA_ARGS__)
 
 static void fprint_chunk(FILE *, void * chunkptr_addr);
 
-static void fprint_bins (FILE *, mchunkptr *, unsigned int *);
+static void fprint_bins (FILE *, mchunkptr *, unsigned int * binmap);
 
 static void fprint_fastbins (FILE *, mfastbinptr *);
 
@@ -82,11 +81,12 @@ static void fprint_fastbins (FILE * stream, mfastbinptr * fastbinsY)
 {
   for (size_t i = 0; i < NFASTBINS; ++i) {
     mchunkptr * chunk_addr = &fastbinsY[i];
+    uintptr_t chunk = DR(chunk_addr);
 #ifndef DEBUG
-    if (DR(chunk_addr)) {
+    if (chunk) {
 #endif
-      print("\t[" BT "] (sz = " BT ") = " XT "\n",
-        i, 16 + i * 8, DR(chunk_addr));
+      print("\t[" BT "] (sz = " BT ") = " XT "    (at " XT ")\n",
+        i, 16 + i * 8, chunk, (uintptr_t) chunk_addr);
       fprint_chunk(stream, chunk_addr);
 #ifndef DEBUG
     }
@@ -165,14 +165,16 @@ static const char * bin_size_of_idx[] = {
 
 static void fprint_bins(FILE * stream, mchunkptr * bins, unsigned int * binmap)
 {
-  print("\t[0x01] (unsorted) = " XT "\n", DR(bins));
+  print("\t[0x01] (unsorted) = " XT "    (at " XT " + %d)\n",
+    DR(bins), (uintptr_t) bins - 2 * SIZE_SZ, 2 * SIZE_SZ);
   fprint_chunk(stream, bins);
   for (size_t i = 2; i < NBINS; ++i) {
     if ((uintptr_t) DR(&binmap[idx2block (i)]) & idx2bit (i)) {
       mchunkptr * chunk_addr = &bins[2 * (i - 1)];
       print("\t[" BT "] (", i);
       print(bin_size_of_idx[i - 2]);
-      print(") = " XT "\n", DR(chunk_addr));
+      print(") = " XT "    (at " XT " + %d)\n",
+        DR(chunk_addr), (uintptr_t) chunk_addr - 2 * SIZE_SZ, 2 * SIZE_SZ);
       fprint_chunk(stream, chunk_addr);
     }
   }
@@ -287,8 +289,8 @@ struct malloc_state *
     struct malloc_state *
       arena = (struct malloc_state *) DR(&heap->ar_ptr);
     if (stream)
-      print("Chunk at " XT " does not use main_arena (at " XT ") but uses "
-            "its own arena at " XT " (read at " XT ")\n",
+      print(BANNER "Chunk at " XT " does not use the main_arena at " XT " "
+        "but uses its own arena at " XT " (read from " XT ")\n",
             (uintptr_t) chunk, (uintptr_t) main_arena,
             (uintptr_t) arena, (uintptr_t) &heap->ar_ptr);
     return arena;
@@ -298,9 +300,13 @@ struct malloc_state *
 
 static void * arena_start_mem (struct malloc_state * arena)
 {
-  return (void *) ((
-    DR(&arena->top) + DR(&((mchunkptr) DR(&arena->top))->mchunk_size)
-    - DR(&arena->system_mem)) & ~MALLOC_ALIGN_MASK);
+  mchunkptr top_chunk = (mchunkptr) DR(&arena->top);
+  if (!top_chunk) return NULL;
+  size_t top_chunk_size = DR(&top_chunk->mchunk_size);
+  if (!top_chunk_size) return NULL;
+  uintptr_t last_addr = (uintptr_t) top_chunk + top_chunk_size;
+  uintptr_t first_addr = last_addr - DR(&arena->system_mem);
+  return (void *) (first_addr & ~MALLOC_ALIGN_MASK);
 }
 
 void fprint_arena_whole_mem (FILE * stream,
@@ -308,9 +314,11 @@ void fprint_arena_whole_mem (FILE * stream,
                              mhandle_list mhandles)
 {
   void * start = arena_start_mem(arena);
+  if (!start) return;
   printd_var(start);
   void * end = (void *) DR(&arena->top) + 24; // DR(&arena->system_mem);
   printd_var(end);
+  print(LINE_SEP);
   size_t cur_inuse = 0;
   for (void * ptr = start; ptr < end; ptr += sizeof(long)) {
     while (mhandles && mhandles->usr_addr < ptr) mhandles = mhandles->next;
@@ -319,12 +327,14 @@ void fprint_arena_whole_mem (FILE * stream,
       print("--> ");
     } else
       print("    ");
+    uintptr_t value = DR(ptr);
     if (cur_inuse) print("\e[33m|");
     else print(" ");
-    print(XT ": " XT "\n", (uintptr_t) ptr, DR(ptr));
+    print(XT ": " XT "\n", (uintptr_t) ptr, value);
     if (cur_inuse) print("\e[m");
     cur_inuse = cur_inuse < sizeof(long) ? 0 : cur_inuse - sizeof(long);
   }
+  print(LINE_SEP "\n");
 }
 
 void mhandles_add (mhandle_list * mhandles_ptr,

@@ -32,6 +32,7 @@ struct trap_context {
   struct arity *		function_arity;
   int				is_wp;
   struct user_regs_struct	regs;
+  long				stack[5];
 };
 /*
    Wrapper to handle SIGTRAPS in a 'while (*tracee_keep_looping)' loop:
@@ -53,8 +54,7 @@ void tracee_free (tracee_t *);
 void * get_ip(tracee_t *);
 void * get_sp(tracee_t *);
 
-void tracee_fprint_function (tracee_t * tracee,
-                             struct trap_context ctxt,
-                             FILE * stream);
+void trap_fprint_function (struct trap_context ctxt,
+                           FILE * stream);
 
 #endif /* __TRACEE_H__ */
