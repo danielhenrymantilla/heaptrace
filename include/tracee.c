@@ -7,18 +7,11 @@
  #error "Please specify the architecture through the __ARCH__ preprocessor var"
 #else
 #if __ARCH__ == 32
- #define REG_IP		eip
- #define REG_SP		esp
- #define REG_RET	eax
  #define TRAP		0xCC
  #define TRAP_SZ	1
 #elif __ARCH__ == 64
- #define REG_IP		rip
- #define REG_SP		rsp
- #define REG_RET	rax
  #define TRAP		0xCC
  #define TRAP_SZ	1
- #define MAIN_BP_OFFSET	11
 #else
  #error "Unsupported architecture (__ARCH__ must be either 32 or 64)"
 #endif
@@ -27,11 +20,11 @@
 /* MAIN_BP_OFFSET is the offset to put the 'main' function breakpoint at */
 /* (offset of 0 leads to a Segmentation Fault ...) */
 #ifndef MAIN_BP_OFFSET
-#if defined(__ARCH__) && __ARCH__ == 64
- #define MAIN_BP_OFFSET	11
-#else
- #define MAIN_BP_OFFSET	10
-#endif
+# if defined(__ARCH__) && __ARCH__ == 64
+#  define MAIN_BP_OFFSET	17
+# else
+#  define MAIN_BP_OFFSET	10
+# endif
 #endif
 
 
@@ -226,9 +219,30 @@ void * get_ret (tracee_t * tracee)
   return (void *) regs.REG_RET;
 }
 
-static const size_t trap_context_stack_count =
-  sizeof(((struct trap_context *)NULL)->stack) /
-    sizeof(((struct trap_context *)NULL)->stack[0]);
+/*
+static const size_t trap_context_args_count =
+  sizeof(((struct trap_context *)NULL)->args) /
+    sizeof(((struct trap_context *)NULL)->args[0]); */
+
+static void tracee_set_ctxt_args (tracee_t * tracee, struct trap_context * c)
+{
+  if (!c) print_fail("tracee_set_ctxt_args: got NULL ctxt");
+#if defined(__ARCH__) && __ARCH__ == 64
+  c->args[0] = (long) c->regs.rdi;
+  c->args[1] = (long) c->regs.rsi;
+  c->args[2] = (long) c->regs.rdx;
+  c->args[3] = (long) c->regs.rcx;
+  c->args[4] = (long) c->regs.r8;
+  c->args[5] = (long) c->regs.r9;
+#else
+  long * stack_ptr = (long *) c->regs.esp;
+  if (c->is_wp) /* offset stack_ptr if entry of function (saved_eip) */
+    ++stack_ptr;
+  for (size_t i = 0; i < 6; ++i) {
+    c->args[i] = ptrace(PTRACE_PEEKDATA, tracee->pid, stack_ptr++, NULL);
+  }
+#endif
+}
 
 int tracee_main_loop (tracee_t * tracee,
                       int (*handle_traps) (struct trap_context * ctxt,
@@ -268,21 +282,15 @@ int tracee_main_loop (tracee_t * tracee,
             printd_low("Saved instruction byte: 0x%hhx\n",
               (int) bp->instr_bckup);
             signal = 0;
-            struct trap_context trap_ctxt;
+            static struct trap_context trap_ctxt;
             trap_ctxt.name = (const char *) bp->name;
             trap_ctxt.function_arity = bp->function_arity;
             trap_ctxt.is_wp = 0;
             if (ptrace(PTRACE_GETREGS, tracee->pid, NULL, &trap_ctxt.regs) < 0)
               failwith("PTRACE_GETREGS (in bp_list loop)");
-            long * stack_ptr = (long *) trap_ctxt.regs.REG_SP;
-            for (size_t i = 0; i < trap_context_stack_count; ++i) {
-              trap_ctxt.stack[i] =
-                ptrace(PTRACE_PEEKDATA, tracee->pid, stack_ptr++, NULL);
-              printd_low("trap_ctxt.stack[%zu] = %#lx\n",
-                i, trap_ctxt.stack[i]);
-            }
             if (bp->wp) { /* Is it a watched function? */
               trap_ctxt.is_wp = 1;
+              tracee_set_ctxt_args(tracee, &trap_ctxt);
               void * sp = get_sp(tracee);
               printd_low("sp = %p\n", sp);
               void * ret_addr = (void *)
@@ -343,17 +351,16 @@ void tracee_unfollow_function (tracee_t * tracee, void * target_addr)
   tracee_remove_breakpoint(tracee, target_addr);
 }
 
-void trap_fprint_function (struct trap_context ctxt,
+void trap_fprint_function (struct trap_context * ctxt,
                            FILE * stream)
 {
-  fprintf(stream, "%s(", ctxt.name);
-  if (ctxt.function_arity) {
-    size_t args_number = ctxt.function_arity->args_number;
-    if (args_number) {
-      for(size_t i = 1; i <= args_number; ++i) {
-        fprintf(stream, i != args_number ? "%#lx, " : "%#lx",
-          ctxt.stack[i - 1 + ctxt.is_wp]);
-      }
+  if (!ctxt) print_fail("trap_fprint_function: got NULL ctxt");
+  fprintf(stream, "%s(", ctxt->name);
+  if (ctxt->function_arity) {
+    size_t args_number = ctxt->function_arity->args_number;
+    for(size_t i = 1; i <= args_number; ++i) {
+      fprintf(stream, i != args_number ? "%#lx, " : "%#lx",
+        ctxt->args[i - 1]);
     }
   }
   fprintf(stream, ")");

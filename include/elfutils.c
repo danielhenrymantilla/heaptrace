@@ -139,7 +139,7 @@ static uintptr_t lookup_dynamic_symbol (const char * raw_binary,
 
   //print_fail("Couldn't locate dynamic symbol '%s'", symbol_name);
   fprintf(stderr, "Couldn't locate dynamic symbol '%s'.\n", symbol_name);
-  return NULL;
+  return (uintptr_t) NULL;
 }
 
 void lookup_symbols (uintptr_t * addresses,

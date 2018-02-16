@@ -101,15 +101,6 @@ static int handle_traps (struct trap_context * ctxt,
                          int * tracee_keep_looking,
                          void * extra)
 {
-#if defined(__ARCH__) && __ARCH__ == 64
- #define IP	rip
- #define SP	rsp
- #define RET	rax
-#else
- #define IP	eip
- #define SP	esp
- #define RET	eax
-#endif
   static int count = -1;
   ++count;
 
@@ -118,32 +109,31 @@ static int handle_traps (struct trap_context * ctxt,
     if (ctxt->is_wp) {	/* Watchpoint => Entry of function */
       fprintf(STREAM, "\n\n");
       fprintf(STREAM, BANNER "Entering function: ");
-      trap_fprint_function(*ctxt, STREAM);
+      trap_fprint_function(ctxt, STREAM);
       fprintf(STREAM, "\n");
       fprint_arena_whole_mem(STREAM, main_arena, *at_mhandles);
       if (streq("free", ctxt->name) || streq("realloc", ctxt->name)) {
-        void * mem = (void *) ctxt->stack[1];
+        void * mem = (void *) ctxt->args[0];
         printd_var(mem);
         fprint_arena(STREAM, arena_for_mem(mem, main_arena, STREAM));
       } else
         fprint_arena(STREAM, main_arena);
     } else {	/* Function return */
       fprintf(STREAM, BANNER "Returning from function: ");
-      trap_fprint_function(*ctxt, STREAM);
+      trap_fprint_function(ctxt, STREAM);
+      long ret   = ctxt->regs.REG_RET;
+      long arg_1 = ctxt->args[0];
+      long arg_2 = ctxt->args[1];
       if (ctxt->function_arity && !ctxt->function_arity->returns_void) {
-        fprintf(STREAM, " = %p", (void *) ctxt->regs.RET);
+        fprintf(STREAM, " = %p", (void *) ret);
       }
       fprintf(STREAM, "\n");
-      long * arg_addr = (long *) ctxt->regs.SP;
-      long ret   = ctxt->regs.RET;
-      long arg_1 = ctxt->stack[0];
-      long arg_2 = ctxt->stack[1];
       switch (as_enum(ctxt->name)) {
       case MALLOC:
         mhandles_add(at_mhandles, (void *) ret, (size_t) arg_1);
         break;
       case REALLOC:
-        mhandles_add(at_mhandles, (void *) arg_1, 0);
+        mhandles_add(at_mhandles, (void *) arg_1, (size_t) 0);
         mhandles_add(at_mhandles, (void *) ret, (size_t) arg_2);
         break;
       case CALLOC:
@@ -151,7 +141,7 @@ static int handle_traps (struct trap_context * ctxt,
                                   (size_t) arg_1 * (size_t) arg_2);
         break;
       case FREE:
-        mhandles_add(at_mhandles, (void *) arg_1, 0);
+        mhandles_add(at_mhandles, (void *) arg_1, (size_t) 0);
         break;
       default: break;
       }
