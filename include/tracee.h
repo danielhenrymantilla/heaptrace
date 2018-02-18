@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 
-#if __ARCH__ == 64
+#if defined(__ARCH__) && __ARCH__ == 64
 # define REG_IP		rip
 # define REG_SP		rsp
 # define REG_RET	rax

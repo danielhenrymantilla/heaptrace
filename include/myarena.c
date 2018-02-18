@@ -124,6 +124,42 @@ static void fprint_chunk(FILE * stream, void * chunkptr_addr)
 }
 
 static const char * bin_size_of_idx[] = {
+#if defined(__ARCH__) && __ARCH__ == 64
+  "sz = 0x20", "sz = 0x30", "sz = 0x40", "sz = 0x50", "sz = 0x60", "sz = 0x70",
+  "sz = 0x80", "sz = 0x90", "sz = 0xa0", "sz = 0xb0", "sz = 0xc0", "sz = 0xd0",
+  "sz = 0xe0", "sz = 0xf0", "sz = 0x100", "sz = 0x110", "sz = 0x120",
+  "sz = 0x130", "sz = 0x140", "sz = 0x150", "sz = 0x160", "sz = 0x170",
+  "sz = 0x180", "sz = 0x190", "sz = 0x1a0", "sz = 0x1b0", "sz = 0x1c0",
+  "sz = 0x1d0", "sz = 0x1e0", "sz = 0x1f0", "sz = 0x200", "sz = 0x210",
+  "sz = 0x220", "sz = 0x230", "sz = 0x240", "sz = 0x250", "sz = 0x260",
+  "sz = 0x270", "sz = 0x280", "sz = 0x290", "sz = 0x2a0", "sz = 0x2b0",
+  "sz = 0x2c0", "sz = 0x2d0", "sz = 0x2e0", "sz = 0x2f0", "sz = 0x300",
+  "sz = 0x310", "sz = 0x320", "sz = 0x330", "sz = 0x340", "sz = 0x350",
+  "sz = 0x360", "sz = 0x370", "sz = 0x380", "sz = 0x390", "sz = 0x3a0",
+  "sz = 0x3b0", "sz = 0x3c0", "sz = 0x3d0", "sz = 0x3e0", "sz = 0x3f0",
+  "0x400 <= sz <= 0x438", "0x440 <= sz <= 0x478", "0x480 <= sz <= 0x4b8",
+  "0x4c0 <= sz <= 0x4f8", "0x500 <= sz <= 0x538", "0x540 <= sz <= 0x578",
+  "0x580 <= sz <= 0x5b8", "0x5c0 <= sz <= 0x5f8", "0x600 <= sz <= 0x638",
+  "0x640 <= sz <= 0x678", "0x680 <= sz <= 0x6b8", "0x6c0 <= sz <= 0x6f8",
+  "0x700 <= sz <= 0x738", "0x740 <= sz <= 0x778", "0x780 <= sz <= 0x7b8",
+  "0x7c0 <= sz <= 0x7f8", "0x800 <= sz <= 0x838", "0x840 <= sz <= 0x878",
+  "0x880 <= sz <= 0x8b8", "0x8c0 <= sz <= 0x8f8", "0x900 <= sz <= 0x938",
+  "0x940 <= sz <= 0x978", "0x980 <= sz <= 0x9b8", "0x9c0 <= sz <= 0x9f8",
+  "0xa00 <= sz <= 0xa38", "0xa40 <= sz <= 0xa78", "0xa80 <= sz <= 0xab8",
+  "0xac0 <= sz <= 0xaf8", "0xb00 <= sz <= 0xb38", "0xb40 <= sz <= 0xb78",
+  "0xb80 <= sz <= 0xbb8", "0xbc0 <= sz <= 0xbf8", "0xc00 <= sz <= 0xc38",
+  "0xc40 <= sz <= 0xdf8", "0xe00 <= sz <= 0xff8", "0x1000 <= sz <= 0x11f8",
+  "0x1200 <= sz <= 0x13f8", "0x1400 <= sz <= 0x15f8", "0x1600 <= sz <= 0x17f8",
+  "0x1800 <= sz <= 0x19f8", "0x1a00 <= sz <= 0x1bf8", "0x1c00 <= sz <= 0x1df8",
+  "0x1e00 <= sz <= 0x1ff8", "0x2000 <= sz <= 0x21f8", "0x2200 <= sz <= 0x23f8",
+  "0x2400 <= sz <= 0x25f8", "0x2600 <= sz <= 0x27f8", "0x2800 <= sz <= 0x29f8",
+  "0x2a00 <= sz <= 0x2ff8", "0x3000 <= sz <= 0x3ff8", "0x4000 <= sz <= 0x4ff8",
+  "0x5000 <= sz <= 0x5ff8", "0x6000 <= sz <= 0x6ff8", "0x7000 <= sz <= 0x7ff8",
+  "0x8000 <= sz <= 0x8ff8", "0x9000 <= sz <= 0x9ff8", "0xa000 <= sz <= 0xfff8",
+  "0x10000 <= sz <= 0x17ff8", "0x18000 <= sz <= 0x1fff8",
+  "0x20000 <= sz <= 0x27ff8", "0x28000 <= sz <= 0x3fff8",
+  "0x40000 <= sz <= 0x7fff8", "0x80000 <= sz",
+#else
   "sz = 0x10", "sz = 0x18", "sz = 0x20", "sz = 0x28", "sz = 0x30", "sz = 0x38",
   "sz = 0x40", "sz = 0x48", "sz = 0x50", "sz = 0x58", "sz = 0x60", "sz = 0x68",
   "sz = 0x70", "sz = 0x78", "sz = 0x80", "sz = 0x88", "sz = 0x90", "sz = 0x98",
@@ -157,6 +193,7 @@ static const char * bin_size_of_idx[] = {
   "0xa000 <= sz <= 0xfff8", "0x10000 <= sz <= 0x17ff8",
   "0x18000 <= sz <= 0x1fff8", "0x20000 <= sz <= 0x27ff8",
   "0x28000 <= sz <= 0x3fff8", "0x40000 <= sz <= 0x7fff8", "0x80000 <= sz"
+#endif
 };
 
 #define idx2block(i)     ((i) >> BINMAPSHIFT)
@@ -319,20 +356,22 @@ void fprint_arena_whole_mem (FILE * stream,
   void * end = (void *) DR(&arena->top) + 24; // DR(&arena->system_mem);
   printd_var(end);
   print(LINE_SEP);
-  size_t cur_inuse = 0;
+  size_t remaining_inuse_sz = 0;
   for (void * ptr = start; ptr < end; ptr += sizeof(long)) {
     while (mhandles && mhandles->usr_addr < ptr) mhandles = mhandles->next;
     if (mhandles && mhandles->usr_addr == ptr) {
-      cur_inuse = mhandles->usr_size;
+      remaining_inuse_sz = mhandles->usr_size;
       print("--> ");
     } else
       print("    ");
     uintptr_t value = DR(ptr);
-    if (cur_inuse) print("\e[33m|");
+    if (remaining_inuse_sz) print("\e[33m|");
     else print(" ");
     print(XT ": " XT "\n", (uintptr_t) ptr, value);
-    if (cur_inuse) print("\e[m");
-    cur_inuse = cur_inuse < sizeof(long) ? 0 : cur_inuse - sizeof(long);
+    if (remaining_inuse_sz) print("\e[m");
+    remaining_inuse_sz = remaining_inuse_sz < sizeof(long) ?
+      0 :
+      remaining_inuse_sz - sizeof(long);
   }
   print(LINE_SEP "\n");
 }
@@ -344,12 +383,12 @@ void mhandles_add (mhandle_list * mhandles_ptr,
   printd_var(usr_addr);
   printd_var(usr_size);
   if (!(*mhandles_ptr) || usr_addr < (*mhandles_ptr)->usr_addr) {
-    mhandle_list tmp = *mhandles_ptr;
-    *mhandles_ptr = malloc(sizeof(struct mhandle));
+    mhandle_list next = *mhandles_ptr;
+    *mhandles_ptr = malloc(sizeof(**mhandles_ptr));
     if (!(*mhandles_ptr)) failwith("mhandles_add: couldn't malloc");
     (*mhandles_ptr)->usr_addr = usr_addr;
     (*mhandles_ptr)->usr_size = usr_size;
-    (*mhandles_ptr)->next = tmp;
+    (*mhandles_ptr)->next = next;
   } else if ((*mhandles_ptr)->usr_addr == usr_addr) {
     (*mhandles_ptr)->usr_size = usr_size;
   } else /* ((*mhandles_ptr)->usr_addr < usr_addr) */ {

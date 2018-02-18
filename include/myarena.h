@@ -15,7 +15,7 @@
 
 void * mainarena_of_pid (pid_t pid);
 
-void * myarena_dereference; /* = classic_dereference (static) */
+void * myarena_dereference; /* = classic_dereference <static> */
 
 #ifndef DR
 # define DR(x) (((uintptr_t (*) (void *)) myarena_dereference)(x))
@@ -35,14 +35,13 @@ void fprint_mem (FILE *, void * mem, struct malloc_state * main_arena);
  */
 typedef struct mhandle * mhandle_list;
 struct mhandle {
-//  void *	addr;		/* Address of chunk */
-//  size_t	size;		/* Size of chunk */
-  void *	usr_addr;	/* User's pointer = addr + 2 * SIZE_SZ */
-  size_t	usr_size;	/* Size known by user (0 if free block) */
-  mhandle_list	next;		/* next in list, sorted */
+  void *	usr_addr;	/* User's pointer (malloc ret or free arg) */
+  size_t	usr_size;	/* Size requested by the user */
+  mhandle_list	next;		/* sorted list */
 };
 
-void mhandles_add (mhandle_list *, void * usr_addr, size_t usr_size);
+void mhandles_add (mhandle_list * mhandles_ptr,
+                   void * usr_addr, size_t usr_size);
 void mhandles_free (mhandle_list);
 
 void fprint_arena_whole_mem (FILE * stream,

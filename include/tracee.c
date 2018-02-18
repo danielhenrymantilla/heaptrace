@@ -21,7 +21,7 @@
 /* (offset of 0 leads to a Segmentation Fault ...) */
 #ifndef MAIN_BP_OFFSET
 # if defined(__ARCH__) && __ARCH__ == 64
-#  define MAIN_BP_OFFSET	17
+#  define MAIN_BP_OFFSET	18
 # else
 #  define MAIN_BP_OFFSET	10
 # endif
@@ -93,21 +93,21 @@ tracee_t * tracee_summon (char * const args[])
   tracee->bps = NULL;
   printd("Child '%s' running under PID %d\n", tracee->name, pid);
   tracee_wait_stop(tracee);
-  ptrace(PTRACE_SETOPTIONS, tracee->pid, 0, PTRACE_O_TRACEEXIT);
+  /* ptrace(PTRACE_SETOPTIONS, tracee->pid, 0, PTRACE_O_TRACEEXIT); */
   const char * raw_binary;
   int fd = open_raw_binary(args[0], &raw_binary);
   void * main_addr = (void *) lookup_symbol(raw_binary, "main");
+  close_raw_binary(fd, raw_binary);
   if (main_addr)
     tracee_add_breakpoint(tracee, main_addr + MAIN_BP_OFFSET, "main", NULL, 0);
   else
     printd("Couldn't find main.\n");
-  close_raw_binary(fd, raw_binary);
   tracee_resume(tracee, 0);
   tracee_wait_stop(tracee);
   return tracee;
 }
 
-static long tracee_write_byte(tracee_t * tracee, void * addr, int byte)
+static long tracee_write_byte (tracee_t * tracee, void * addr, int byte)
 {
   long ret = ptrace(PTRACE_PEEKTEXT, tracee->pid, addr, NULL);
   long tmp =
