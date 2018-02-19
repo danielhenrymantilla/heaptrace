@@ -17,17 +17,6 @@
 #endif
 #endif
 
-/* MAIN_BP_OFFSET is the offset to put the 'main' function breakpoint at */
-/* (offset of 0 leads to a Segmentation Fault ...) */
-#ifndef MAIN_BP_OFFSET
-# if defined(__ARCH__) && __ARCH__ == 64
-#  define MAIN_BP_OFFSET	18
-# else
-#  define MAIN_BP_OFFSET	10
-# endif
-#endif
-
-
 #ifndef print_fail
  #define print_fail(fmt, ...) do {				\
    fprintf(stderr, "Fatal error: " fmt ".\n", ##__VA_ARGS__);	\
@@ -37,7 +26,7 @@
 
 struct bp_node {
   void *		addr;
-  long			instr_bckup;
+  unsigned int		instr_bckup;
   const char *		name;
   int			wp;
   struct arity *	function_arity;
@@ -49,7 +38,7 @@ static int tracee_wait_stop (tracee_t * tracee)
   int status;
   if (waitpid(tracee->pid, &status, 0) < 0)
     failwith("waitpid");
-  /* if (status) ... */
+  /* if (something_of(status)) ... */
   return status;
 }
 
@@ -65,54 +54,14 @@ tracee_t * tracee_attach (pid_t pid) {
   return NULL;
 }
 
-static void tracee_add_breakpoint (tracee_t * tracee,
-                                   void * target_addr,
-                                   const char * bp_name,
-                                   struct arity * function_arity,
-                                   int is_watchpoint);
-
-tracee_t * tracee_summon (char * const args[])
+static unsigned int tracee_write_byte (tracee_t * tracee,
+                                       void * addr, unsigned int byte)
 {
-  pid_t pid;
-  if ((pid = fork()) == -1) {
-    failwith("fork");
-  }
-  if (pid == 0) {
-  /* tracee */
-    if(ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0)
-      failwith("Failed to PTRACE_TRACEME");
-    execvp(args[0], args);
-    failwith("Error when trying to execute '%s'", *args);
-  }
-  /* tracer */
-  tracee_t * tracee = malloc(sizeof(tracee_t));
-  if (!tracee) failwith("tracee_summon: malloc");
-  tracee->name = (const char *) strdup(args[0]);
-  if (!tracee->name) failwith("tracee_summon: malloc");
-  tracee->pid = pid;
-  tracee->bps = NULL;
-  printd("Child '%s' running under PID %d\n", tracee->name, pid);
-  tracee_wait_stop(tracee);
-  /* ptrace(PTRACE_SETOPTIONS, tracee->pid, 0, PTRACE_O_TRACEEXIT); */
-  const char * raw_binary;
-  int fd = open_raw_binary(args[0], &raw_binary);
-  void * main_addr = (void *) lookup_symbol(raw_binary, "main");
-  close_raw_binary(fd, raw_binary);
-  if (main_addr)
-    tracee_add_breakpoint(tracee, main_addr + MAIN_BP_OFFSET, "main", NULL, 0);
-  else
-    printd("Couldn't find main.\n");
-  tracee_resume(tracee, 0);
-  tracee_wait_stop(tracee);
-  return tracee;
-}
-
-static long tracee_write_byte (tracee_t * tracee, void * addr, int byte)
-{
-  long ret = ptrace(PTRACE_PEEKTEXT, tracee->pid, addr, NULL);
-  long tmp =
-    ptrace(PTRACE_POKETEXT, tracee->pid, addr, (byte & 0xff) | (ret & ~0xff));
-  if (tmp < 0) failwith("PTRACE_POKETEXT");
+  unsigned long cur_word = ptrace(PTRACE_PEEKTEXT, tracee->pid, addr, NULL);
+  unsigned int ret = (int) cur_word & 0xff;
+  unsigned long write_word = (cur_word & ~0xffUL) | (long) (byte & 0xff);
+  long ptrace_ret = ptrace(PTRACE_POKETEXT, tracee->pid, addr, write_word);
+  if (ptrace_ret < 0) failwith("PTRACE_POKETEXT");
   return ret;
 }
 
@@ -135,8 +84,8 @@ static void tracee_add_breakpoint (tracee_t * tracee,
   new_bp->wp = is_watchpoint;
   new_bp->function_arity = NULL;
   if (function_arity) {
-    printd_low("tracee_follow_function:\n\t"
-      "args_number = %zu, returns_void = %d\n",
+    printd_low(
+      "tracee_follow_function: args_number = %zu, returns_void = %d\n",
       function_arity->args_number, function_arity->returns_void);
     new_bp->function_arity = malloc(sizeof(struct arity));
     if (!new_bp->function_arity)
@@ -150,6 +99,18 @@ static void tracee_add_breakpoint (tracee_t * tracee,
 
 static void tracee_pass_breakpoint (tracee_t * tracee, bp_list bp)
 {
+  bp_list cur_bp;
+  if (bp) cur_bp = bp;
+  else {
+    void * cur_instr_addr = get_ip(tracee);
+    for (cur_bp = tracee->bps;
+         cur_bp && cur_bp->addr != cur_instr_addr;
+         cur_bp = cur_bp->next);
+    if (!cur_bp)
+      print_fail(
+        "tracee_pass_breakpoint: couldn't find the breakpoint record "
+        "for the current instruction at %p", cur_instr_addr);
+  }
   tracee_write_byte(tracee, bp->addr, bp->instr_bckup);
   if (ptrace(PTRACE_SINGLESTEP, tracee->pid, 0, 0) < 0)
     failwith("PTRACE_SINGLESTEP");
@@ -161,12 +122,13 @@ static void free_bp (bp_list bp_ptr, int free_next);
 
 static void tracee_remove_breakpoint (tracee_t * tracee, void * target_addr)
 {
-  while (tracee->bps->addr == target_addr) {
+  while (tracee->bps && tracee->bps->addr == target_addr) {
     bp_list temp = tracee->bps;
     tracee->bps = tracee->bps->next;
     tracee_write_byte(tracee, temp->addr, temp->instr_bckup);
     free_bp(temp, 0);
   }
+  if (!tracee->bps) return;
   bp_list prev_bp = tracee->bps;
   for (bp_list cur_bp = tracee->bps->next;
        cur_bp != NULL;
@@ -174,7 +136,16 @@ static void tracee_remove_breakpoint (tracee_t * tracee, void * target_addr)
   {
     if (cur_bp->addr == target_addr) {
       prev_bp->next = cur_bp->next;
-      tracee_write_byte(tracee, cur_bp->addr, cur_bp->instr_bckup);
+#ifdef DEBUG
+      unsigned int swapped_byte =
+#endif
+        tracee_write_byte(tracee, cur_bp->addr, cur_bp->instr_bckup);
+#ifdef DEBUG
+      if (swapped_byte != TRAP)
+        printd(
+          "Warning at tracee_remove_breakpoint: "
+          "Didn't remove the SIGTRAP opcode at %p\n", cur_bp->addr);
+#endif
       free_bp(cur_bp, 0);
       cur_bp = prev_bp;
     } else
@@ -217,6 +188,47 @@ void * get_ret (tracee_t * tracee)
   if (ptrace(PTRACE_GETREGS, tracee->pid, NULL, &regs) < 0)
     failwith("PTRACE_GETREGS");
   return (void *) regs.REG_RET;
+}
+
+tracee_t * tracee_summon (char * const args[])
+{
+  pid_t pid;
+  if ((pid = fork()) == -1) {
+    failwith("fork");
+  }
+  if (pid == 0) {
+  /* tracee */
+    if(ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0)
+      failwith("Failed to PTRACE_TRACEME");
+    execvp(args[0], args);
+    failwith("Error when trying to execute '%s'", *args);
+  }
+  /* tracer */
+  tracee_t * tracee = malloc(sizeof(tracee_t));
+  if (!tracee) failwith("tracee_summon: malloc");
+  tracee->name = (const char *) strdup(args[0]);
+  if (!tracee->name) failwith("tracee_summon: malloc");
+  tracee->pid = pid;
+  tracee->bps = NULL;
+  printd("Child '%s' running under PID %d\n", tracee->name, pid);
+  tracee_wait_stop(tracee);
+  /* Stopped BEFORE main; need to add a breakpoint at main */
+  const char * raw_binary;
+  int fd = open_raw_binary(args[0], &raw_binary);
+  void * main_addr = (void *) lookup_symbol(raw_binary, "main");
+  close_raw_binary(fd, raw_binary);
+  if (!main_addr)
+    fprintf(stderr, BANNER "Warning: couldn't find main symbol or address.\n");
+  else {
+    tracee_add_breakpoint(tracee, main_addr, "main", NULL, 0);
+    tracee_resume(tracee, 0);
+    tracee_wait_stop(tracee);
+    /* Stopped AT main SIGTRAP; need to patch IP and instruction */
+    void * cur_instr_addr =
+      get_and_shift_ip(tracee, -TRAP_SZ); /* Patch IP from SIGTRAP opcode */
+    tracee_remove_breakpoint (tracee, cur_instr_addr); /* Patch instr */
+  }
+  return tracee;
 }
 
 /*
