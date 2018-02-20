@@ -4,7 +4,7 @@ extern void * heaputils_dereference;
 
 static void usage (const char * progname)
 {
-  fprintf(stderr, "Usage: %s command [arg ...]\n", progname);
+  fprintf(STREAM, "Usage: %s command [arg ...]\n", progname);
   exit(EXIT_FAILURE);
 }
 
@@ -28,8 +28,6 @@ static int handle_traps (struct trap_context * ctxt,
                          void * extra);
 
 static void * main_arena;
-
-#define STREAM stderr
 
 int main (int argc, char * argv[])
 {
@@ -115,14 +113,14 @@ static int handle_traps (struct trap_context * ctxt,
       trap_fprint_function(ctxt, STREAM);
       fprintf(STREAM, "\n");
       /* getchar() */;
-      fprint_arena_whole_mem(STREAM, main_arena, *at_mhandles);
+      print_arena_whole_mem(main_arena, *at_mhandles);
       /* getchar() */;
       if (streq("free", ctxt->name) || streq("realloc", ctxt->name)) {
         void * mem = (void *) ctxt->args[0];
         printd_var(mem);
-        fprint_arena(STREAM, arena_for_mem(mem, main_arena, STREAM));
+        print_arena(arena_for_mem(mem, main_arena));
       } else
-        fprint_arena(STREAM, main_arena);
+        print_arena(main_arena);
     } else {	/* Function return */
       fprintf(STREAM, BANNER "Returning from function: ");
       trap_fprint_function(ctxt, STREAM);
@@ -145,7 +143,7 @@ static int handle_traps (struct trap_context * ctxt,
           mhandles_add(at_mhandles, (void *) arg_1, (size_t) 0);
           fprintf(STREAM,
             "realloc has freed the pointer %p.\n", (void *) arg_1);
-          fprint_mem(STREAM, (void *) arg_1, main_arena);
+          print_mem((void *) arg_1, main_arena);
         } else {
           size_t old_size = 0;
           for (mhandle_list mhandles = *at_mhandles;
@@ -162,7 +160,7 @@ static int handle_traps (struct trap_context * ctxt,
             void * next_chunk = (void *) mem2chunk(arg_1) + chunk_new_size;
             fprintf(STREAM,
               "realloc might have freed or coalesced at %p:\n", next_chunk);
-            fprint_mem(STREAM, chunk2mem(next_chunk), main_arena);
+            print_mem(chunk2mem(next_chunk), main_arena);
           }
         }
         break;
@@ -172,7 +170,7 @@ static int handle_traps (struct trap_context * ctxt,
         break;
       case FREE:
         mhandles_add(at_mhandles, (void *) arg_1, (size_t) 0);
-        fprint_mem(STREAM, (void *) arg_1, main_arena);
+        print_mem((void *) arg_1, main_arena);
         break;
       default: break;
       }

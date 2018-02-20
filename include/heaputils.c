@@ -7,77 +7,58 @@
 */
 #include "mymalloc.h"
 
-#define LINE_SEP "=========================\n"
-
-#ifndef DISABLE_MYPRINTER
-# include "myprinter.h"
-#else
-# define __myfprintf__(...) fprintf(__VA_ARGS__)
-# define myfprintf(...) fprintf(__VA_ARGS__)
-# if defined(__ARCH__) && __ARCH__ == 64
-#  define XT		"0x%lx"
-# else
-#  define XT		"0x%x"
-# endif
-# define BT		"0x%02hhx"
-#endif
-
 static uintptr_t classic_dereference (void * ptr) {
   return *(uintptr_t *) ptr;
 }
 
 void * heaputils_dereference = classic_dereference;
 
-#define print(format, ...) \
-  myfprintf(stream, format, ##__VA_ARGS__)
+static void print_chunk (void * chunkptr_addr);
 
-static void fprint_chunk(FILE *, void * chunkptr_addr);
+static void print_bins (mchunkptr *, unsigned int * binmap);
 
-static void fprint_bins (FILE *, mchunkptr *, unsigned int * binmap);
+static void print_fastbins (mfastbinptr *);
 
-static void fprint_fastbins (FILE *, mfastbinptr *);
-
-static void fprint_binmap (FILE *, unsigned int *);
+static void print_binmap (unsigned int *);
 
 static mchunkptr last_remainder = NULL;
 
-void fprint_arena (FILE * stream, struct malloc_state * arena)
+void print_arena (struct malloc_state * arena)
 {
-  print(LINE_SEP);
-  print("Arena at " XT ":\n",
+  last_remainder = (mchunkptr) DR(&arena->last_remainder);
+  printf_console(LINE_SEP);
+  printf_line("Arena at " XT ":",
     (uintptr_t) arena);
-  last_remainder = (mchunkptr)
-    DR(&arena->last_remainder);
-  print(" -> (int) flags = " XT "\n",
+  printf_line(" -> (int) flags = " XT,
     DR(&arena->flags));
-  print(" -> (int) have_fastchunks = " BT "\n",
+  printf_line(" -> (int) have_fastchunks = " BT,
     DR(&arena->have_fastchunks));
-  print(" -> (mfastbinptr []) fastbinsY (at " XT ") :\n",
+  printf_line(" -> (mfastbinptr []) fastbinsY (at " XT ") :",
     (uintptr_t) &arena->fastbinsY);
-  fprint_fastbins(stream, (mfastbinptr *) &arena->fastbinsY);
-  print(" -> (mchunkptr) top = " XT "\n",
+  print_fastbins((mfastbinptr *) &arena->fastbinsY);
+  printf_line(" -> (mchunkptr) top = " XT,
     DR(&arena->top));
-  print(" -> (mchunkptr) last_remainder = " XT "\n",
+  printf_line(" -> (mchunkptr) last_remainder = " XT,
     (uintptr_t) last_remainder);
-  print(" -> (mchunpktr []) bins (at " XT ") :\n",
+  printf_line(" -> (mchunpktr []) bins (at " XT ") :",
     (uintptr_t) &arena->bins);
-  fprint_bins(stream,
+  print_bins(
     (mchunkptr *) &arena->bins, (unsigned int *) &arena->binmap);
 #ifdef DEBUG
-  print(" -> (unsigned int []) binmap (at " XT ") :\n",
+  printf_line(" -> (unsigned int []) binmap (at " XT ") :",
     (uintptr_t) &arena->binmap);
-  fprint_binmap(stream, (unsigned int *) &arena->binmap);
+  print_binmap((unsigned int *) &arena->binmap);
 #endif
-  print(" -> (size_t) attached_threads = " BT "\n",
+  printf_line(" -> (size_t) attached_threads = " BT,
     DR(&arena->attached_threads));
-  print(" -> (size_t) system_mem = " XT "\n",
+  printf_line(" -> (size_t) system_mem = " XT,
     DR(&arena->system_mem));
-  print(" -> (size_t) max_system_mem = " XT "\n",
+  printf_line(" -> (size_t) max_system_mem = " XT,
     DR(&arena->max_system_mem));
-  print(LINE_SEP "\n");
+  printf_console(LINE_SEP "\n");
 }
 
-static void fprint_fastbins (FILE * stream, mfastbinptr * fastbinsY)
+static void print_fastbins (mfastbinptr * fastbinsY)
 {
   for (size_t i = 0; i < NFASTBINS; ++i) {
     mchunkptr * chunk_addr = &fastbinsY[i];
@@ -85,44 +66,44 @@ static void fprint_fastbins (FILE * stream, mfastbinptr * fastbinsY)
 #ifndef DEBUG
     if (chunk) {
 #endif
-      print("\t[" BT "] (sz = " BT ") = " XT "    (at " XT ")\n",
+      printf_line("   [" BT "] (sz = " BT ") = " XT "    (at " XT ")",
         i, 16 + i * 8, chunk, (uintptr_t) chunk_addr);
-      fprint_chunk(stream, chunk_addr);
+      print_chunk(chunk_addr);
 #ifndef DEBUG
     }
 #endif
   }
 }
 
-static void fprint_chunk_aux(FILE * stream,
-                             mchunkptr chunk,
-                             mchunkptr startpoint,
-                             size_t tabs)
+static void print_chunk_aux(mchunkptr chunk,
+                            mchunkptr startpoint,
+                            size_t tabs)
 {
   if (chunk && chunk != startpoint) {
-    for (size_t i = 0; i < tabs; ++i) print("\t");
+    for (size_t i = 0; i < tabs; ++i) print_short("   ");
     if (chunk == last_remainder)
-      print("<LR> ");
+      print_short("<LR> ");
     mchunkptr next_chunk = (mchunkptr) DR(&chunk->fd);
-    print("\\-> "
+    printf_line("\\-> "
       "[ psz:" XT " | "
       "sz:" XT " | "
       "fd:" XT " | "
-      "bk:" XT " ]\n",
+      "bk:" XT " ]",
       DR(&chunk->mchunk_prev_size), DR(&chunk->mchunk_size),
       (uintptr_t) next_chunk, DR(&chunk->bk)
     );
-    fprint_chunk_aux(stream, next_chunk, startpoint, tabs + 1);
+    print_chunk_aux(next_chunk, startpoint, tabs + 1);
   }
 }
 
-static void fprint_chunk(FILE * stream, void * chunkptr_addr)
+static void print_chunk(void * chunkptr_addr)
 {
   mchunkptr startpoint = (mchunkptr)
     (chunkptr_addr - offsetof(struct malloc_chunk, fd));
-  fprint_chunk_aux(stream, (mchunkptr) DR(chunkptr_addr), startpoint, 2);
+  print_chunk_aux((mchunkptr) DR(chunkptr_addr), startpoint, 2);
 }
 
+/* TODO: clean this dirty hack and use actual ints instead of long strings */
 static const char * bin_size_of_idx[] = {
 #if defined(__ARCH__) && __ARCH__ == 64
   "sz = 0x20", "sz = 0x30", "sz = 0x40", "sz = 0x50", "sz = 0x60", "sz = 0x70",
@@ -200,33 +181,35 @@ static const char * bin_size_of_idx[] = {
 #define idx2bit(i)       ((1ULL << ((i) & ((1U << BINMAPSHIFT) - 1))))
 #define get_binmap(m, i)  (DR(&(m)->binmap[idx2block (i)]) & idx2bit (i))
 
-static void fprint_bins(FILE * stream, mchunkptr * bins, unsigned int * binmap)
+static void print_bins(mchunkptr * bins, unsigned int * binmap)
 {
-  print("\t[0x01] (unsorted) = " XT "    (at " XT " + %d)\n",
+  printf_line("   [0x01] (unsorted) = " XT "    (at " XT " + %d)",
     DR(bins), (uintptr_t) bins - 2 * SIZE_SZ, 2 * SIZE_SZ);
-  fprint_chunk(stream, bins);
+  print_chunk(bins);
   for (size_t i = 2; i < NBINS; ++i) {
     if ((uintptr_t) DR(&binmap[idx2block (i)]) & idx2bit (i)) {
       mchunkptr * chunk_addr = &bins[2 * (i - 1)];
-      print("\t[" BT "] (", i);
-      print(bin_size_of_idx[i - 2]);
-      print(") = " XT "    (at " XT " + %d)\n",
-        DR(chunk_addr), (uintptr_t) chunk_addr - 2 * SIZE_SZ, 2 * SIZE_SZ);
-      fprint_chunk(stream, chunk_addr);
+      printf_line(
+        "   [" BT "] (%s) = " XT "    (at " XT " + %d)",
+        i, bin_size_of_idx[i - 2], DR(chunk_addr),
+        (uintptr_t) chunk_addr - 2 * SIZE_SZ, 2 * SIZE_SZ);
+      print_chunk(chunk_addr);
     }
   }
 }
 
-static void fprint_binmap (FILE * stream, unsigned int * binmap)
+static void print_binmap (unsigned int * binmap)
 {
-  for (size_t i = 1; i < NBINS; ++i) {
-    print((uintptr_t) DR(&binmap[idx2block (i)]) & idx2bit (i) ? "1" : "0");
-    if (i % BITSPERMAP == 0)
-      print(" ");
+  char binmap_str[NBINS + BITSPERMAP + 1] = {0};
+  for (size_t i = 0; i < NBINS / BITSPERMAP; ++i) {
+    uintptr_t word = DR(&binmap[i]);
+    for (size_t j = 0; j < BITSPERMAP; ++j)
+      binmap_str[i * (BITSPERMAP + 1) + j] = word & idx2bit(j) ? '1' : '0';
+    binmap_str[i * (BITSPERMAP + 1) + BITSPERMAP] = ' ';
   }
-  print("\n");
+  binmap_str[sizeof(binmap_str) - 1] = '\0';
+  printf_line("%s", binmap_str);
 }
-
 
 
 /* With /proc/$pid/maps to get access to the virtual memory mapping (vmmap),
@@ -243,19 +226,23 @@ void * mainarena_of_pid (pid_t pid)
   char * vmmap_filename = NULL;
   asprintf(&vmmap_filename, "/proc/%hu/maps", pid);
 #else
-  char vmmap_filename[16 + 1] = "/proc/"; /* "/proc/...../maps" */
+# define __PROC__ "/proc/"
+# define __MAPS__ "/maps"
+# define __PIDLEN__ 5
+  char vmmap_filename[sizeof(__PROC__) + __PIDLEN__ + sizeof(__MAPS__) + 1]
+    = __PROC__;
   {
-    char s_pid[5 + 1];
-    size_t i = 5 + 1;
-    s_pid[--i] = '\0';
-    int n = pid & 0xffff;
-    while (n) {
+    char s_pid[__PIDLEN__ + 1];
+    size_t i = __PIDLEN__;
+    s_pid[i] = '\0';
+    for (int n = pid & 0xffff; n; n /= 10)
       s_pid[--i] = (n % 10) + '0';
-      n /= 10;
-    }
     strcat(vmmap_filename, &s_pid[i]);
   }
-  strcat(vmmap_filename, "/maps");
+  strcat(vmmap_filename, __MAPS__);
+#undef __PIDLEN__
+#undef __MAPS__
+#undef __PROC__
 #endif
   printd_low("cat %s\n", vmmap_filename);
   FILE * vmmap = fopen(vmmap_filename, "r");
@@ -284,17 +271,17 @@ void * mainarena_of_pid (pid_t pid)
   return NULL;
 }
 
-void fprint_mem (FILE * stream,
-                 void * mem,
-                 struct malloc_state * main_arena)
+void print_mem (void * mem,
+                struct malloc_state * main_arena)
 {
   mchunkptr chunk = mem2chunk(mem);
-  print(LINE_SEP "Got chunk at " XT " (from mem = " XT "):\n",
+  printf_console(LINE_SEP);
+  printf_line("Got chunk at " XT " (from mem = " XT "):",
     (uintptr_t) chunk, (uintptr_t) mem);
   mchunkptr nextchunk = (mchunkptr) DR(&chunk->fd);
-  fprint_chunk_aux(stream, chunk, nextchunk, 1);
-  print(LINE_SEP "\n");
-  fprint_arena(stream, arena_for_mem(mem, main_arena, stream));
+  print_chunk_aux(chunk, nextchunk, 1);
+  printf_console(LINE_SEP "\n");
+  print_arena(arena_for_mem(mem, main_arena));
 }
 
 typedef struct _heap_info
@@ -317,19 +304,19 @@ typedef struct _heap_info
   ((heap_info *) ((unsigned long) (ptr) & ~(HEAP_MAX_SIZE - 1)))
 
 struct malloc_state *
-  arena_for_mem (void * mem, struct malloc_state * main_arena, FILE * stream)
+  arena_for_mem (void * mem, struct malloc_state * main_arena)
 {
   mchunkptr chunk = mem2chunk(mem);
   if chunk_non_main_arena(chunk) {
     heap_info * heap = heap_for_ptr(chunk);
     printd_var(heap);
-    struct malloc_state *
-      arena = (struct malloc_state *) DR(&heap->ar_ptr);
-    if (stream)
-      print(BANNER "Chunk at " XT " does not use the main_arena at " XT " "
-        "but uses its own arena at " XT " (read from " XT ")\n",
-            (uintptr_t) chunk, (uintptr_t) main_arena,
-            (uintptr_t) arena, (uintptr_t) &heap->ar_ptr);
+    struct malloc_state * arena
+      = (struct malloc_state *) DR(&heap->ar_ptr);
+    printf_line(BANNER
+      "Chunk at " XT " does not use the main_arena at " XT " "
+      "but uses its own arena at " XT " (read from " XT ")",
+      (uintptr_t) chunk, (uintptr_t) main_arena,
+      (uintptr_t) arena, (uintptr_t) &heap->ar_ptr);
     return arena;
   }
   return main_arena;
@@ -346,36 +333,33 @@ static void * arena_start_mem (struct malloc_state * arena)
   return (void *) (first_addr & ~MALLOC_ALIGN_MASK);
 }
 
-void fprint_arena_whole_mem (FILE * stream,
-                             struct malloc_state * arena,
-                             mhandle_list mhandles)
+void print_arena_whole_mem (struct malloc_state * arena,
+                            mhandle_list mhandles)
 {
   void * start = arena_start_mem(arena);
   if (!start) return;
   printd_var(start);
   void * end = (void *) DR(&arena->top) + 24; // DR(&arena->system_mem);
   printd_var(end);
-  print(LINE_SEP);
+  printf_line(LINE_SEP);
   size_t remaining_inuse_sz = 0;
   for (void * ptr = start; ptr < end; ptr += sizeof(long)) {
     while (mhandles && mhandles->usr_addr < ptr) mhandles = mhandles->next;
     if (mhandles && mhandles->usr_addr == ptr) {
       remaining_inuse_sz = mhandles->usr_size;
-      print("--> ");
+      print_short("--> ");
     } else
-      print("    ");
+      print_short("    ");
     uintptr_t value = DR(ptr);
+    fprintf(STREAM, remaining_inuse_sz ? COLOR_OPEN "|" : " ");
+    printf_line(XT ": " XT, (uintptr_t) ptr, value);
     if (remaining_inuse_sz)
-      print(COLOR_OPEN "|");
-    else print(" ");
-    print(XT ": " XT "\n", (uintptr_t) ptr, value);
-    if (remaining_inuse_sz)
-      print(COLOR_CLOSE);
+      fprintf(STREAM, COLOR_CLOSE);
     remaining_inuse_sz = remaining_inuse_sz < sizeof(long) ?
       0 :
       remaining_inuse_sz - sizeof(long);
   }
-  print(LINE_SEP "\n");
+  printf_console(LINE_SEP);
 }
 
 void mhandles_add (mhandle_list * mhandles_ptr,

@@ -1,7 +1,6 @@
 #ifndef __MYARENA_H__
 #define __MYARENA_H__
 
-#include <stdio.h>
 #include <sys/types.h>
 #include "mymalloc.h"
 
@@ -13,25 +12,25 @@
 # endif
 #endif
 
-void * mainarena_of_pid (pid_t pid);
-
-void * heaputils_dereference; /* = classic_dereference <static> */
+void * heaputils_dereference; /* by default equal to:
+  = classic_dereference <static def> */
 
 #ifndef DR
 # define DR(x) (((uintptr_t (*) (void *)) heaputils_dereference)(x))
 #endif
 
-void fprint_arena (FILE * stream, struct malloc_state * arena);
+void * mainarena_of_pid (pid_t pid);
+
+void print_arena (struct malloc_state * arena);
 
 struct malloc_state *
   arena_for_mem (void * mem,
-                 struct malloc_state * main_arena,
-                 FILE * optional_stream);
+                 struct malloc_state * main_arena);
 
-void fprint_mem (FILE *, void * mem, struct malloc_state * main_arena);
+void print_mem (void * mem, struct malloc_state * main_arena);
 
 /* List of "memory handles" to keep track of user pointers to memory blocks
- * \-> SORTED => true_invariant (!next || addr < next->addr)
+ * \-> SORTED => we have the invariant: !next || addr < next->addr
  */
 typedef struct mhandle * mhandle_list;
 struct mhandle {
@@ -44,8 +43,7 @@ void mhandles_add (mhandle_list * mhandles_ptr,
                    void * usr_addr, size_t usr_size);
 void mhandles_free (mhandle_list);
 
-void fprint_arena_whole_mem (FILE * stream,
-                             struct malloc_state * arena,
-                             mhandle_list mhandles);
+void print_arena_whole_mem (struct malloc_state * arena,
+                            mhandle_list mhandles);
 
 #endif /* __MYARENA_H__ */

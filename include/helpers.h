@@ -2,7 +2,6 @@
 #define __HELPERS_H__
 
 #define _GNU_SOURCE
-#define DISABLE_MYPRINTER
 
 #include <sys/ptrace.h>
 #include <stdlib.h>
@@ -23,6 +22,8 @@
 #include <elf.h>
 
 #define BANNER "<tracer> "
+
+#include "printutils.h"
 
 /* Use make COLOR=0 when compiling to disable colored console printing */
 #ifdef COLOR

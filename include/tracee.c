@@ -19,7 +19,7 @@
 
 #ifndef print_fail
  #define print_fail(fmt, ...) do {				\
-   fprintf(stderr, "Fatal error: " fmt ".\n", ##__VA_ARGS__);	\
+   fprintf(STREAM, "Fatal error: " fmt ".\n", ##__VA_ARGS__);	\
    exit(-1);							\
  } while (0)
 #endif
@@ -218,7 +218,7 @@ tracee_t * tracee_summon (char * const args[])
   void * main_addr = (void *) lookup_symbol(raw_binary, "main");
   close_raw_binary(fd, raw_binary);
   if (!main_addr)
-    fprintf(stderr, BANNER "Warning: couldn't find main symbol or address.\n");
+    fprintf(STREAM, BANNER "Warning: couldn't find main symbol or address.\n");
   else {
     tracee_add_breakpoint(tracee, main_addr, "main", NULL, 0);
     tracee_resume(tracee, 0);
@@ -270,14 +270,14 @@ int tracee_main_loop (tracee_t * tracee,
     tracee_resume(tracee, signal);
     status = tracee_wait_stop(tracee);
     if (WIFEXITED(status)) {
-      fprintf(stderr, BANNER "Child '%s' exited, returning status %d.\n",
+      fprintf(STREAM, BANNER "Child '%s' exited, returning status %d.\n",
         tracee->name, WEXITSTATUS(status));
       return WEXITSTATUS(status);
     }
     if (WIFSTOPPED(status) || WIFSIGNALED(status)) {
       signal = WIFSTOPPED(status) ? WSTOPSIG(status) : WTERMSIG(status);
       if (signal != SIGTRAP) {
-        fprintf(stderr, BANNER "Warning: child '%s' got signal '%s'\n",
+        fprintf(STREAM, BANNER "Warning: child '%s' got signal '%s'\n",
           tracee->name, strsignal(signal));
         printd("IP = %p\n", get_ip(tracee));
         if (strcmp(strsignal(signal), "Segmentation fault") == 0) {

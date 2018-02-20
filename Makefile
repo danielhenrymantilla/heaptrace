@@ -4,11 +4,13 @@ ARGS=example/foo
 
 ARCH=32
 
-COLOR=YES
-
 DEBUG=0
+COLOR=YES
+HTML=YES
 
-CFLAGS=-Wall -Wextra -m$(ARCH) -D __ARCH__=$(ARCH) $(COLORDEF) $(DEBUGDEF)
+CFLAGS=-Wall -Wextra \
+  -m$(ARCH) -D __ARCH__=$(ARCH) \
+  $(COLORDEF) $(DEBUGDEF) $(HTMLDEF)
 
 LDFLAGS=#-Iinclude
 
@@ -24,7 +26,12 @@ run: $(EXE) example/foo
 example/foo: example/foo.c
 	@make -C example foo ARCH=$(ARCH)
 
-$(EXE): $(EXE).o elfutils.o heaputils.o tracee.o myprinter.o
+ifeq ($(HTML), YES)
+HTMLDEP=printutils_html.o
+HTMLDEF=-D WITH_HTML
+endif
+
+$(EXE): $(EXE).o elfutils.o heaputils.o tracee.o $(HTMLDEP)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 $(EXE).o: $(EXE).c
@@ -59,4 +66,3 @@ DEFOFFSET=-D LIBC_MAINARENA_OFF=0x`python2.7 -c 'from sys import argv; print arg
 else
 DEFOFFSET=-D LIBC_MAINARENA_OFF=0x`python2.7 -c 'from sys import argv; print argv[1][-3:]' $$(nm /usr/lib/debug/lib/x86_64-linux-gnu/libc-2.23.so | grep main_arena)`
 endif
-
