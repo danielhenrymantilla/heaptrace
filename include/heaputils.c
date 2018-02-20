@@ -365,10 +365,12 @@ void fprint_arena_whole_mem (FILE * stream,
     } else
       print("    ");
     uintptr_t value = DR(ptr);
-    if (remaining_inuse_sz) print("\e[33m|");
+    if (remaining_inuse_sz)
+      print(COLOR_OPEN "|");
     else print(" ");
     print(XT ": " XT "\n", (uintptr_t) ptr, value);
-    if (remaining_inuse_sz) print("\e[m");
+    if (remaining_inuse_sz)
+      print(COLOR_CLOSE);
     remaining_inuse_sz = remaining_inuse_sz < sizeof(long) ?
       0 :
       remaining_inuse_sz - sizeof(long);

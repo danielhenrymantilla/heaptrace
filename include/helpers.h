@@ -24,12 +24,23 @@
 
 #define BANNER "<tracer> "
 
-/* Use make D=DEBUG when compiling to enable debug printing */
+/* Use make COLOR=0 when compiling to disable colored console printing */
+#ifdef COLOR
+# define COLOR_OPEN "\e[33m"
+# define COLOR_OPEN_SECONDARY "\e[1;30m"
+# define COLOR_CLOSE "\e[m"
+#else
+# define COLOR_OPEN ""
+# define COLOR_OPEN_SECONDARY ""
+# define COLOR_CLOSE ""
+#endif
+
+/* Use make DEBUG=1 when compiling to enable debug printing */
 #ifdef DEBUG
 # define printd(format, ...) \
-  fprintf(stderr, "\e[33m" format "\e[m", ##__VA_ARGS__)
+  fprintf(stderr, COLOR_OPEN format COLOR_CLOSE, ##__VA_ARGS__)
 # define printd_low(format, ...) \
-  fprintf(stderr, "\e[1;30m" format "\e[m", ##__VA_ARGS__)
+  fprintf(stderr, COLOR_OPEN_SECONDARY format COLOR_CLOSE, ##__VA_ARGS__)
 #else
 # define printd(...) ((void) 0)
 # define printd_low(...) ((void) 0)

@@ -4,17 +4,11 @@ ARGS=example/foo
 
 ARCH=32
 
-ifneq ($(D), )
-CUSTOMDEFINE=-D '$(D)'
-endif
-# CPP var definition of offset to main_arena symbol.
-ifeq ($(ARCH), 32)
-DEFOFFSET=-D LIBC_MAINARENA_OFF=0x`python2.7 -c 'from sys import argv; print argv[1][-3:]' $$(nm /usr/lib/debug/lib/i386-linux-gnu/libc-2.23.so | grep main_arena)`
-else
-DEFOFFSET=-D LIBC_MAINARENA_OFF=0x`python2.7 -c 'from sys import argv; print argv[1][-3:]' $$(nm /usr/lib/debug/lib/x86_64-linux-gnu/libc-2.23.so | grep main_arena)`
-endif
+COLOR=YES
 
-CFLAGS=-Wall -Wextra -m$(ARCH) -D __ARCH__=$(ARCH) $(CUSTOMDEFINE)
+DEBUG=0
+
+CFLAGS=-Wall -Wextra -m$(ARCH) -D __ARCH__=$(ARCH) $(COLORDEF) $(DEBUGDEF)
 
 LDFLAGS=#-Iinclude
 
@@ -49,3 +43,20 @@ clean: no_obj
 	@rm -f $(EXE) *~ core .gdb_history
 	@ls
 	@rm -f example/foo example/core
+
+
+ifeq ($(COLOR), YES)
+COLORDEF=-D COLOR
+endif
+
+ifneq ($(DEBUG), 0)
+DEBUGDEF=-D 'DEBUG=$(DEBUG)'
+endif
+
+# CPP var definition of offset to main_arena symbol.
+ifeq ($(ARCH), 32)
+DEFOFFSET=-D LIBC_MAINARENA_OFF=0x`python2.7 -c 'from sys import argv; print argv[1][-3:]' $$(nm /usr/lib/debug/lib/i386-linux-gnu/libc-2.23.so | grep main_arena)`
+else
+DEFOFFSET=-D LIBC_MAINARENA_OFF=0x`python2.7 -c 'from sys import argv; print argv[1][-3:]' $$(nm /usr/lib/debug/lib/x86_64-linux-gnu/libc-2.23.so | grep main_arena)`
+endif
+
