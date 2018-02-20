@@ -1,6 +1,6 @@
 #include "mtrace.h"
 
-extern void * myarena_dereference;
+extern void * heaputils_dereference;
 
 static void usage (const char * progname)
 {
@@ -36,7 +36,7 @@ int main (int argc, char * argv[])
   if (argc < 2)
     usage(argv[0]);
   tracee = tracee_summon(&argv[1]);
-  myarena_dereference = (void *) tracee_deref;
+  heaputils_dereference = (void *) tracee_deref;
   const char * raw_binary;
   int fd = open_raw_binary(argv[1], &raw_binary);
   const char * symbols[] = {

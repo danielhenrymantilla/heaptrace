@@ -15,10 +15,10 @@
 
 void * mainarena_of_pid (pid_t pid);
 
-void * myarena_dereference; /* = classic_dereference <static> */
+void * heaputils_dereference; /* = classic_dereference <static> */
 
 #ifndef DR
-# define DR(x) (((uintptr_t (*) (void *)) myarena_dereference)(x))
+# define DR(x) (((uintptr_t (*) (void *)) heaputils_dereference)(x))
 #endif
 
 void fprint_arena (FILE * stream, struct malloc_state * arena);

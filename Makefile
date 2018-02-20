@@ -30,7 +30,7 @@ run: $(EXE) example/foo
 example/foo: example/foo.c
 	@make -C example foo ARCH=$(ARCH)
 
-$(EXE): $(EXE).o elfutils.o myarena.o tracee.o myprinter.o
+$(EXE): $(EXE).o elfutils.o heaputils.o tracee.o myprinter.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 $(EXE).o: $(EXE).c
@@ -39,7 +39,7 @@ $(EXE).o: $(EXE).c
 %.o: include/%.c
 	$(CC) $(CFLAGS) -c $<
 
-set: include/myarena.c $(EXE).c
+set: include/heaputils.c $(EXE).c
 	@nano $^
 
 no_obj:

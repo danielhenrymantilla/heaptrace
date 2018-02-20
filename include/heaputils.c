@@ -1,8 +1,8 @@
 #include "helpers.h"
-#include "myarena.h"
+#include "heaputils.h"
 /* from header:
   #ifndef DR
-  # define DR(x) (((uintptr_t (*) (void *)) myarena_dereference)(x))
+  # define DR(x) (((uintptr_t (*) (void *)) heaputils_dereference)(x))
   #endif
 */
 #include "mymalloc.h"
@@ -26,7 +26,7 @@ static uintptr_t classic_dereference (void * ptr) {
   return *(uintptr_t *) ptr;
 }
 
-void * myarena_dereference = classic_dereference;
+void * heaputils_dereference = classic_dereference;
 
 #define print(format, ...) \
   myfprintf(stream, format, ##__VA_ARGS__)
