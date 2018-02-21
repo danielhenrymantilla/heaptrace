@@ -31,16 +31,19 @@ HTMLDEP=printutils_html.o
 HTMLDEF=-D WITH_HTML
 endif
 
-$(EXE): $(EXE).o elfutils.o heaputils.o tracee.o $(HTMLDEP)
+$(EXE): $(EXE).o elfutils.o heaputils.o tracee.o $(HTMLDEP) opthandler.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
 $(EXE).o: $(EXE).c
 	$(CC) $(CFLAGS) $(DEFOFFSET) -c $<
 
+opthandler.o: include/opthandler/opthandler.c
+	$(CC) $(CFLAGS) -c $<
+
 %.o: include/%.c
 	$(CC) $(CFLAGS) -c $<
 
-set: include/heaputils.c $(EXE).c
+set: $(EXE).c include/printutils_html.c
 	@nano $^
 
 no_obj:

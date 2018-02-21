@@ -1,12 +1,22 @@
 #include "mtrace.h"
 
-extern void * heaputils_dereference;
+static enum {
+  HTML,
+  OUTPUT_DIRECTORY,
+  NO_COLORS,
+};
 
-static void usage (const char * progname)
-{
-  fprintf(STREAM, "Usage: %s command [arg ...]\n", progname);
-  exit(EXIT_FAILURE);
-}
+static struct opthandler_option options[] = {
+  [HTML] = {
+    "enable HTML pretty printing",
+    'h',	"html",			NULL,		arg_flag},
+  [OUTPUT_DIRECTORY] = {
+    "set the output directory",
+    'd',	"output-dir",		"dirname",	arg_default("output")},
+  [NO_COLORS] = {
+    "disable colored output in console",
+    '\0',	"no-colors",		NULL,		arg_flag},
+};
 
 static tracee_t * tracee;
 
@@ -31,12 +41,21 @@ static void * main_arena;
 
 int main (int argc, char * argv[])
 {
-  if (argc < 2)
-    usage(argv[0]);
-  tracee = tracee_summon(&argv[1]);
+  opthandler_help_char = '?';
+  opthandler_argsname = "command [args ...]";
+  opthandler_init(sizeof(options) / sizeof(*options),
+                 options,
+                 "Program to trace and print the contents of the heap "
+                 "at each malloc, free, calloc or realloc call.");
+  argv = opthandler_handle_opts(argv);
+  if (!argv[0]) {
+    fprintf(stderr, "Error, missing command.\n");
+    opthandler_usage(EXIT_FAILURE);
+  }
+  tracee = tracee_summon(argv);
   heaputils_dereference = (void *) tracee_deref;
   const char * raw_binary;
-  int fd = open_raw_binary(argv[1], &raw_binary);
+  int fd = open_raw_binary(argv[0], &raw_binary);
   const char * symbols[] = {
     "main_arena",
     "malloc", "realloc", "calloc", "free"
@@ -82,6 +101,7 @@ int main (int argc, char * argv[])
   int ret = tracee_main_loop(tracee, handle_traps, &mhandles);
   mhandles_free(mhandles);
   tracee_free(tracee);
+  opthandler_free();
   return ret;
 }
 
