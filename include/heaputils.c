@@ -26,7 +26,7 @@ static mchunkptr last_remainder = NULL;
 void print_arena (struct malloc_state * arena)
 {
   last_remainder = (mchunkptr) DR(&arena->last_remainder);
-  printf_console(LINE_SEP);
+  printf_console(LINE_SEP "\n");
   printf_line("Arena at " XT ":",
     (uintptr_t) arena);
   printf_line(" -> (int) flags = " XT,
@@ -79,7 +79,7 @@ static void print_chunk_aux(mchunkptr chunk,
                             mchunkptr startpoint,
                             size_t tabs)
 {
-  if (chunk && chunk != startpoint && chunk != -1) {
+  if (tabs < 20 && chunk && chunk != startpoint && chunk != -1) {
     for (size_t i = 0; i < tabs; ++i) print_short("   ");
     if (chunk == last_remainder)
       print_short("<LR> ");
