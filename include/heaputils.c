@@ -275,7 +275,7 @@ void print_mem (void * mem,
                 struct malloc_state * main_arena)
 {
   mchunkptr chunk = mem2chunk(mem);
-  printf_console(LINE_SEP);
+  printf_console(LINE_SEP "\n");
   printf_line("Got chunk at " XT " (from mem = " XT "):",
     (uintptr_t) chunk, (uintptr_t) mem);
   mchunkptr nextchunk = (mchunkptr) DR(&chunk->fd);
