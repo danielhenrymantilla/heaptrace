@@ -79,7 +79,7 @@ static void print_chunk_aux(mchunkptr chunk,
                             mchunkptr startpoint,
                             size_t tabs)
 {
-  if (chunk && chunk != startpoint) {
+  if (chunk && chunk != startpoint && chunk != -1) {
     for (size_t i = 0; i < tabs; ++i) print_short("   ");
     if (chunk == last_remainder)
       print_short("<LR> ");

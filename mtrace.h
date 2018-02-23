@@ -14,5 +14,6 @@ extern void * heaputils_dereference;
 
 extern char * opthandler_argsname;
 
-extern char opthandler_help_char
+extern char opthandler_help_char;
+
 #endif /* __MTRACE_H__ */
