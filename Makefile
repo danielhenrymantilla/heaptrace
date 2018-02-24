@@ -1,4 +1,4 @@
-EXE=mtrace
+EXE=heaptrace
 
 ARGS=example/foo
 
