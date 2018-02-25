@@ -25,12 +25,12 @@
   }									\
 } while (0)
 
-# define printf_line(format, ...) 						\
+# define printf_line(format, ...) 					\
  do {									\
-  printf_console(format, ##__VA_ARGS__);					\
+  printf_console(format, ##__VA_ARGS__);				\
   printf_console("\n");							\
   if(print_mode & PRINT_HTML) {						\
-    html_printf_line(format, ##__VA_ARGS__);		\
+    html_printf_line(format, ##__VA_ARGS__);				\
   }									\
  } while (0)
 

@@ -21,49 +21,65 @@
 #include <fcntl.h>
 #include <elf.h>
 
-#define BANNER "<tracer> "
-
 #include "printutils.h"
 
-/* Use make COLOR=0 when compiling to disable colored console printing */
-#ifdef COLOR
-# define COLOR_OPEN "\e[33m"
-# define COLOR_OPEN_SECONDARY "\e[1;30m"
-# define COLOR_CLOSE "\e[m"
-#else
-# define COLOR_OPEN ""
-# define COLOR_OPEN_SECONDARY ""
-# define COLOR_CLOSE ""
-#endif
+#define BANNER "<tracer> "
 
-/* Use make DEBUG=1 when compiling to enable debug printing */
+/* Colored printing can be enabled / disabled throught the flag_nocolor var */
+int flag_nocolor;
+#define COLOR_OPEN		(flag_nocolor ? "" : "\e[33m")
+#define COLOR_OPEN_SECONDARY	(flag_nocolor ? "" : "\e[1;30m")
+#define COLOR_CLOSE		(flag_nocolor ? "" : "\e[m")
+
+/*************************************************************************
+ ***** Print Debug (= printd) and Verbose Print Debug (= printd_low) *****
+ *************************************************************************
+ *                                                                       *
+ * 1) Print Debug can be dynamically enabled through the flag_debug var; *
+ *                                                                       *
+ * 2) When compiling, you may use:                                       *
+ *      -> make DEBUG=1 to force enabling Print Debug;                   *
+ *      -> make DEBUG=2 to enable Verbose Print Debug;                   *
+ *                                                                       *
+ *************************************************************************/
+int flag_debug;
+
 #ifdef DEBUG
 # define printd(format, ...) \
-  fprintf(stderr, COLOR_OPEN format COLOR_CLOSE, ##__VA_ARGS__)
+    fprintf(stderr, "%s" format "%s", \
+      COLOR_OPEN, ##__VA_ARGS__, COLOR_CLOSE)
+
 # define printd_low(format, ...) \
-  fprintf(stderr, COLOR_OPEN_SECONDARY format COLOR_CLOSE, ##__VA_ARGS__)
+    fprintf(stderr, "%s" format "%s", \
+      COLOR_OPEN_SECONDARY, ##__VA_ARGS__, COLOR_CLOSE)
 #else
-# define printd(...) ((void) 0)
+# define printd(format, ...) \
+    do { \
+      if (flag_debug) \
+        fprintf(stderr, "%s" format "%s", \
+          COLOR_OPEN, ##__VA_ARGS__, COLOR_CLOSE); \
+    } while (0)
+
 # define printd_low(...) ((void) 0)
 #endif
 
-#define xstr(x) #x
+#define xstr(x) #x	/* To expand beyond macros */
 #define printd_var(var) printd("%s = %p\n", #var, (void *)(var))
 
-#define failwith(fmt, ...) do { \
-  char * buf = NULL; \
-  asprintf(&buf, BANNER fmt, ##__VA_ARGS__); \
-  perror(buf); \
-  free(buf); \
-  exit(EXIT_FAILURE); \
-} while (0)
-
-#ifndef print_fail
-# define print_fail(fmt, ...) do {                              \
-   fprintf(stderr, "Fatal error: " fmt ".\n", ##__VA_ARGS__);   \
-   exit(-1);                                                    \
- } while (0)
-#endif
+/* 'failwith' complements 'perror'. For other fatal errors, use 'print_fail' */
+#define failwith(fmt, ...) \
+  do { \
+    char * buf = NULL; \
+    asprintf(&buf, BANNER fmt, ##__VA_ARGS__); \
+    perror(buf); \
+    free(buf); \
+    exit(EXIT_FAILURE); \
+  } while (0)
+#define print_fail(fmt, ...) \
+  do { \
+    fprintf(stderr, "Fatal error: " fmt ".\n", ##__VA_ARGS__); \
+    exit(EXIT_FAILURE); \
+  } while (0)
 
 #define streq(s1, s2) (!strcmp(s1, s2))
 

@@ -1,21 +1,25 @@
 #include "heaptrace.h"
 
-static enum {
-  HTML,
-  OUTPUT_DIRECTORY,
-  NO_COLORS,
+enum options_order {
+  o_OUTPUT_DIRECTORY,
+  o_HTML,
+  o_DEBUG,
+  o_NO_COLOR,
 };
 
 static struct opthandler_option options[] = {
-  [HTML] = {
+  [o_HTML] = {
     "enable HTML pretty printing",
     'h',	"html",			NULL,		arg_flag},
-  [OUTPUT_DIRECTORY] = {
+  [o_OUTPUT_DIRECTORY] = {
     "set the output directory",
     'd',	"output-dir",		"dirname",	arg_default("output")},
-  [NO_COLORS] = {
+  [o_DEBUG] = {
+    "enable printing debug info to stderr",
+    'g',	"debug",		NULL,		arg_flag},
+  [o_NO_COLOR] = {
     "disable colored output in console",
-    '\0',	"no-colors",		NULL,		arg_flag},
+    '\0',	"no-color",		NULL,		arg_flag},
 };
 
 static tracee_t * tracee;
@@ -47,8 +51,10 @@ int main (int argc, char * argv[])
                  options,
                  "Program to trace and print the contents of the heap "
                  "at each malloc, free, calloc or realloc call.");
-  argv = opthandler_handle_opts(argv);
-  if (!argv[0]) {
+  opthandler_handle_opts(&argc, &argv);
+  flag_nocolor = options[o_NO_COLOR].value.flag;
+  flag_debug = options[o_DEBUG].value.flag;
+  if (!argc) {
     fprintf(stderr, "Error, missing command.\n");
     opthandler_usage(EXIT_FAILURE);
   }

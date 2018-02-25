@@ -79,7 +79,7 @@ static void print_chunk_aux(mchunkptr chunk,
                             mchunkptr startpoint,
                             size_t tabs)
 {
-  if (tabs < 20 && chunk && chunk != startpoint && chunk != -1) {
+  if (tabs < 20 && chunk && chunk != startpoint && (intptr_t) chunk != -1) {
     for (size_t i = 0; i < tabs; ++i) print_short("   ");
     if (chunk == last_remainder)
       print_short("<LR> ");
@@ -351,15 +351,18 @@ void print_arena_whole_mem (struct malloc_state * arena,
     } else
       print_short("    ");
     uintptr_t value = DR(ptr);
-    fprintf(STREAM, remaining_inuse_sz ? COLOR_OPEN "|" : " ");
+    if (remaining_inuse_sz)
+      fprintf(STREAM, "%s" "|", COLOR_OPEN);
+    else
+      fprintf(STREAM, " ");
     printf_line(XT ": " XT, (uintptr_t) ptr, value);
     if (remaining_inuse_sz)
-      fprintf(STREAM, COLOR_CLOSE);
+      fprintf(STREAM, "%s", COLOR_CLOSE);
     remaining_inuse_sz = remaining_inuse_sz < sizeof(long) ?
       0 :
       remaining_inuse_sz - sizeof(long);
   }
-  printf_console(LINE_SEP);
+  printf_console(LINE_SEP "\n");
 }
 
 void mhandles_add (mhandle_list * mhandles_ptr,
