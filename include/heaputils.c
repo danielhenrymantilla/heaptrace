@@ -44,10 +44,14 @@ void print_arena (struct malloc_state * arena)
     (uintptr_t) &arena->bins);
   print_bins(
     (mchunkptr *) &arena->bins, (unsigned int *) &arena->binmap);
-#ifdef DEBUG
+#ifndef DEBUG
+  if (flag_debug) {
+#endif
   printf_line(" -> (unsigned int []) binmap (at " XT ") :",
     (uintptr_t) &arena->binmap);
   print_binmap((unsigned int *) &arena->binmap);
+#ifndef DEBUG
+  }
 #endif
   printf_line(" -> (size_t) attached_threads = " BT,
     DR(&arena->attached_threads));
@@ -64,7 +68,7 @@ static void print_fastbins (mfastbinptr * fastbinsY)
     mchunkptr * chunk_addr = &fastbinsY[i];
     uintptr_t chunk = DR(chunk_addr);
 #ifndef DEBUG
-    if (chunk) {
+    if (flag_debug || chunk) {
 #endif
       printf_line("   [" BT "] (sz = " BT ") = " XT "    (at " XT ")",
         i, 16 + i * 8, chunk, (uintptr_t) chunk_addr);

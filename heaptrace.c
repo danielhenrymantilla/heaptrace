@@ -3,24 +3,33 @@
 enum options_order {
   o_OUTPUT_DIRECTORY,
   o_HTML,
+  o_PAUSES,
   o_DEBUG,
   o_NO_COLOR,
 };
 
 static struct opthandler_option options[] = {
   [o_HTML] = {
-    "enable HTML pretty printing",
+    "replace raw-text output to pretty printed HTML",
     'h',	"html",			NULL,		arg_flag},
   [o_OUTPUT_DIRECTORY] = {
     "set the output directory",
-    'd',	"output-dir",		"dirname",	arg_default("output")},
+    'd',	NULL/*"output-dir"*/,	"dirname",	arg_default("output")},
   [o_DEBUG] = {
     "enable printing debug info to stderr",
     'g',	"debug",		NULL,		arg_flag},
   [o_NO_COLOR] = {
     "disable colored output in console",
     '\0',	"no-color",		NULL,		arg_flag},
+  [o_PAUSES] = {
+    "enable pauses during console printing",
+    'p',	"pauses",		NULL,		arg_flag},
 };
+
+static void maybe_pause (void)
+{
+  if (options[o_PAUSES].value.flag) getchar();
+}
 
 static tracee_t * tracee;
 
@@ -30,7 +39,7 @@ static long tracee_deref (void * ptr)
   printd_low(BANNER "tracee_deref: *(%p) = ", ptr);
 #endif
   long ret = ptrace(PTRACE_PEEKDATA, tracee->pid, ptr, NULL);
-  if (ret == -1) failwith("tracee_deref: PTRACE_PEEKDATA");
+  /* if (ret == -1) failwith("tracee_deref: PTRACE_PEEKDATA"); */
 #if defined(DEBUG) && DEBUG >= 2
   printd_low("%p\n", (void *) ret);
 #endif
@@ -58,17 +67,19 @@ int main (int argc, char * argv[])
     fprintf(stderr, "Error, missing command.\n");
     opthandler_usage(EXIT_FAILURE);
   }
+
+  opthandler_free();
   tracee = tracee_summon(argv);
   heaputils_dereference = (void *) tracee_deref;
+
   const char * raw_binary;
   int fd = open_raw_binary(argv[0], &raw_binary);
-  const char * symbols[] = {
+  const char * symbols[5] = {
     "main_arena",
     "malloc", "realloc", "calloc", "free"
   };
-  #define NSYMS (sizeof(symbols) / sizeof(*symbols))
-  uintptr_t addresses[NSYMS] = {0};
-  lookup_symbols(addresses, raw_binary, symbols, NSYMS);
+  uintptr_t addresses[5] = {0};
+  lookup_symbols(addresses, raw_binary, symbols, 5);
   if (close_raw_binary(fd, raw_binary) < 0)
     failwith("close_raw_binary");
   main_arena = (void *) addresses[0];
@@ -103,11 +114,11 @@ int main (int argc, char * argv[])
                              &function_arity);
     }
   }
+
   mhandle_list mhandles = NULL;
   int ret = tracee_main_loop(tracee, handle_traps, &mhandles);
   mhandles_free(mhandles);
   tracee_free(tracee);
-  opthandler_free();
   return ret;
 }
 
@@ -138,9 +149,9 @@ static int handle_traps (struct trap_context * ctxt,
       fprintf(STREAM, BANNER "Entering function: ");
       trap_fprint_function(ctxt, STREAM);
       fprintf(STREAM, "\n");
-      /* getchar() */;
+      maybe_pause();
       print_arena_whole_mem(main_arena, *at_mhandles);
-      /* getchar() */;
+      maybe_pause();
       if (streq("free", ctxt->name) || streq("realloc", ctxt->name)) {
         void * mem = (void *) ctxt->args[0];
         printd_var(mem);
@@ -157,7 +168,7 @@ static int handle_traps (struct trap_context * ctxt,
         fprintf(STREAM, " = %p", (void *) ret);
       }
       fprintf(STREAM, "\n");
-      /* getchar() */;
+      maybe_pause();
       switch (as_enum(ctxt->name)) {
       case MALLOC:
         mhandles_add(at_mhandles, (void *) ret, (size_t) arg_1);
@@ -182,7 +193,7 @@ static int handle_traps (struct trap_context * ctxt,
             }
           }
           size_t chunk_new_size = request2size(arg_2);
-          if (request2size(old_size) < chunk_new_size) {
+          if (chunk_new_size < request2size(old_size)) {
             void * next_chunk = (void *) mem2chunk(arg_1) + chunk_new_size;
             fprintf(STREAM,
               "realloc might have freed or coalesced at %p:\n", next_chunk);

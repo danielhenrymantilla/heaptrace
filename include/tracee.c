@@ -136,15 +136,17 @@ static void tracee_remove_breakpoint (tracee_t * tracee, void * target_addr)
   {
     if (cur_bp->addr == target_addr) {
       prev_bp->next = cur_bp->next;
-#ifdef DEBUG
       unsigned int swapped_byte =
-#endif
         tracee_write_byte(tracee, cur_bp->addr, cur_bp->instr_bckup);
-#ifdef DEBUG
+#ifndef DEBUG
+      if (flag_debug) {
+#endif
       if (swapped_byte != TRAP)
         printd(
           "Warning at tracee_remove_breakpoint: "
-          "Didn't remove the SIGTRAP opcode at %p\n", cur_bp->addr);
+          "Didn't remove the expected SIGTRAP opcode at %p\n", cur_bp->addr);
+#ifndef DEBUG
+      }
 #endif
       free_bp(cur_bp, 0);
       cur_bp = prev_bp;
